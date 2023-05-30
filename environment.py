@@ -1,7 +1,8 @@
 import tkinter as tk
 import numpy as np
 import envgui
-
+import threading
+import random
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = 2  # 石が白：2
@@ -87,7 +88,11 @@ class Environment:
     def decidewinner(self):
         white = np.count_nonzero(self.state == WHITE)
         black = np.count_nonzero(self.state == BLACK)
-        self.winner = max(white, black)
+        w=max(white, black)
+        if white == w:
+            self.winner=WHITE
+        elif black==w:
+            self.winner=BLACK
 
     def reversestones(self, index):  # 引数に座標、出力は変化後の盤面orダメだったらfalse
         if len(index) != 2 or self.state[index[0]][index[1]] != BLANK: return np.zeros(0)
@@ -135,6 +140,11 @@ class Environment:
 
 if __name__ == "__main__":
     env = Environment()
+    def gui():
+        root = tk.Tk()
+        envgui.EnvGUI(env=env, master=root)
+    thread1 = threading.Thread(target=gui)
+    thread1.start()
     while env.getwinner().size == 0:
         t = env.getturn()
         if t == WHITE:
@@ -146,16 +156,16 @@ if __name__ == "__main__":
         while not act:
             print(actlist)
             print("which one? input number")
-            n = input()
-            if int(n) ==100:
-                root=tk.Tk()
-                envg=envgui.EnvGUI(env=env,master=root)
-                envg.mainloop()
-                continue
-            act = env.action(actlist[int(n)])
-    if env.getwinner()[0] == WHITE:
+            if env.turn ==WHITE:
+                act = env.action(random.choice(actlist))
+            else:
+                n = input()
+                act = env.action(actlist[int(n)])
+    winner=env.getwinner()
+    print(winner)
+    if winner == WHITE:
         print("winner is WHITE")
-    else:
+    elif winner ==BLACK:
         print("winner is  BLACK")
 
 

@@ -20,6 +20,7 @@ class EnvGUI(tk.Frame):
                                                      (i+1)*CANVAS_WIDTH/8-1, (j+1)*CANVAS_HIGHT/8-1,
                                                      fill='green',outline='green')
         self.updateStone()
+        self.mainloop()
     def setStone(self,x,y,color:int):
         if color==0:
             self.canvas.itemconfig(tagOrId=self.idlist[x][y],fill='green',outline='green')
@@ -32,6 +33,8 @@ class EnvGUI(tk.Frame):
         for i in range(8):
             for j in range(8):
                 self.setStone(i,j,self.env.state[i][j])
+        self.master.lift()
+        self.master.after(1000, self.updateStone)
 
 
 if __name__ =="__main__":
