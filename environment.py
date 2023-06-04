@@ -3,6 +3,7 @@ import numpy as np
 import envgui
 import threading
 import random
+
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = 2  # 石が白：2
@@ -10,16 +11,16 @@ WHITE = 2  # 石が白：2
 
 # 要件
 # 入力:行動([座標]or[])
-# 出力:最新の盤面(numpy)、行動ログ([[座標],手番]のリスト)、行動候補([[行動候補(座標リスト)]])、勝者(試合中は[])
+# 出力:最新の盤面(numpy)、行動候補([[行動候補(座標リスト)]])、勝者(試合中は[])
 
 class Environment:
     # 初期化
     def __init__(self):
         self.stateinit()
-        self.turn = BLACK
-        self.log = []
+        self.side = BLACK
         self.winner = []
         self.isPassed = False
+        self.turn = 0
 
     # stateの初期化
     def stateinit(self):
@@ -28,15 +29,6 @@ class Environment:
         self.state[4][3] = BLACK
         self.state[3][4] = BLACK
         self.state[4][4] = WHITE
-
-    # logの更新
-    def logupdate(self, act):
-        self.log.append([act, self.turn])
-
-    # logの出力
-    def getlog(self):
-        return np.copy(self.log)
-
     # stateの出力
     def getstate(self):
         return np.copy(self.state)
@@ -45,15 +37,18 @@ class Environment:
     def getwinner(self):
         return np.copy(self.winner)
 
+    def getside(self):
+        return self.side
+
     def getturn(self):
         return self.turn
 
     # 手番の交代
     def turn_change(self):
-        if self.turn == WHITE:
-            self.turn = BLACK
-        elif self.turn == BLACK:
-            self.turn = WHITE
+        if self.side == WHITE:
+            self.side = BLACK
+        elif self.side == BLACK:
+            self.side = WHITE
         else:
             pass
 
@@ -70,7 +65,7 @@ class Environment:
 
     # 行動をする。成功したらTrue、失敗ならFalseを返す
     def action(self, act):
-        if  act in self.actlist():
+        if act in self.actlist():
             if len(act) == 0:
                 if self.isPassed:
                     self.decidewinner()
@@ -79,7 +74,7 @@ class Environment:
             else:
                 self.state = self.reversestones(act)
                 self.isPassed = False
-            self.logupdate(act)
+            self.turn += 1
             self.turn_change()
             return True
         else:
@@ -88,11 +83,14 @@ class Environment:
     def decidewinner(self):
         white = np.count_nonzero(self.state == WHITE)
         black = np.count_nonzero(self.state == BLACK)
-        w=max(white, black)
-        if white == w:
-            self.winner=WHITE
-        elif black==w:
-            self.winner=BLACK
+        w = max(white, black)
+        if white==black:
+            self.winner=BLANK
+        else:
+            if white == w:
+                self.winner = WHITE
+            elif black == w:
+                self.winner = BLACK
 
     def reversestones(self, index):  # 引数に座標、出力は変化後の盤面orダメだったらfalse
         if len(index) != 2 or self.state[index[0]][index[1]] != BLANK: return np.zeros(0)
@@ -121,12 +119,12 @@ class Environment:
             localindex += directon  # 各方向にひとつづつ進める
             while np.all(localindex >= 0) and np.all(localindex < 8):
                 if arrayclone[localindex[0]][localindex[1]] == BLANK: break
-                if arrayclone[localindex[0]][localindex[1]] != self.turn:  # 異なる色の石がある
+                if arrayclone[localindex[0]][localindex[1]] != self.side:  # 異なる色の石がある
                     isdifferentcoloredstone = True
                     returnstonelist.append(np.copy(localindex))
                 elif isdifferentcoloredstone:  # ↑の状態を経た後かつ同じ色の石がある ひっくり返せる
                     for num in returnstonelist:
-                        arrayclone[num[0]][num[1]] = self.turn
+                        arrayclone[num[0]][num[1]] = self.side
                     break
                 else:  # 上以外(同じ色しかない)
                     break
@@ -134,19 +132,21 @@ class Environment:
         if np.all(self.state == arrayclone):
             return np.zeros(0)
         else:
-            arrayclone[index[0]][index[1]] = self.turn
+            arrayclone[index[0]][index[1]] = self.side
             return arrayclone
 
 
 if __name__ == "__main__":
     env = Environment()
-    def gui():
-        root = tk.Tk()
-        envgui.EnvGUI(env=env, master=root)
-    thread1 = threading.Thread(target=gui)
-    thread1.start()
+    gui = False
+    if gui:
+        def gui():
+            root = tk.Tk()
+            envgui.EnvGUI(env=env, master=root)
+        thread1 = threading.Thread(target=gui)
+        thread1.start()
     while env.getwinner().size == 0:
-        t = env.getturn()
+        t = env.getside()
         if t == WHITE:
             print("turn of WHITE")
         else:
@@ -156,16 +156,14 @@ if __name__ == "__main__":
         while not act:
             print(actlist)
             print("which one? input number")
-            if env.turn ==WHITE:
+            if env.side == WHITE:
                 act = env.action(random.choice(actlist))
             else:
                 n = input()
                 act = env.action(actlist[int(n)])
-    winner=env.getwinner()
+    winner = env.getwinner()
     print(winner)
     if winner == WHITE:
         print("winner is WHITE")
-    elif winner ==BLACK:
+    elif winner == BLACK:
         print("winner is  BLACK")
-
-
