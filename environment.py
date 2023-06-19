@@ -3,7 +3,8 @@ import numpy as np
 import envgui
 import threading
 import random
-
+import time
+import operator
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = 2  # 石が白：2
@@ -12,15 +13,11 @@ WHITE = 2  # 石が白：2
 # 要件
 # 入力:行動([座標]or[])
 # 出力:最新の盤面(numpy)、行動候補([[行動候補(座標リスト)]])、勝者(試合中は[])
-
+#先手が黒、後手が白
 class Environment:
     # 初期化
     def __init__(self):
-        self.stateinit()
-        self.side = BLACK
-        self.winner = []
-        self.isPassed = False
-        self.turn = 0
+        self.reset()
 
     # stateの初期化
     def stateinit(self):
@@ -29,6 +26,14 @@ class Environment:
         self.state[4][3] = BLACK
         self.state[3][4] = BLACK
         self.state[4][4] = WHITE
+    def reset(self):
+        self.stateinit()
+        self.side = BLACK
+        self.winner = []
+        self.isPassed = False
+        self.turn = 0
+        self.actlist = []
+        self.makeactlist()
     # stateの出力
     def getstate(self):
         return np.copy(self.state)
@@ -52,8 +57,8 @@ class Environment:
         else:
             pass
 
-    # 取れる行動のリストを返す
-    def actlist(self):
+    # self.actlistを更新
+    def makeactlist(self):
         actionlist = []
         statecopy = np.copy(self.state)
         for i in range(8):
@@ -61,11 +66,11 @@ class Environment:
                 if statecopy[i][j] == BLANK and self.reversestones([i, j]).size != 0:
                     actionlist.append([i, j])
         if len(actionlist) == 0: actionlist.append([])
-        return actionlist
+        self.actlist = actionlist
 
     # 行動をする。成功したらTrue、失敗ならFalseを返す
     def action(self, act):
-        if act in self.actlist():
+        if act in self.actlist:
             if len(act) == 0:
                 if self.isPassed:
                     self.decidewinner()
@@ -76,6 +81,7 @@ class Environment:
                 self.isPassed = False
             self.turn += 1
             self.turn_change()
+            self.makeactlist()
             return True
         else:
             return False
@@ -116,8 +122,9 @@ class Environment:
             elif i == 7:
                 directon = [-1, -1]
             isdifferentcoloredstone = False
-            localindex += directon  # 各方向にひとつづつ進める
+            localindex = np.add(localindex,directon) # 各方向にひとつづつ進める
             while np.all(localindex >= 0) and np.all(localindex < 8):
+
                 if arrayclone[localindex[0]][localindex[1]] == BLANK: break
                 if arrayclone[localindex[0]][localindex[1]] != self.side:  # 異なる色の石がある
                     isdifferentcoloredstone = True
@@ -128,7 +135,7 @@ class Environment:
                     break
                 else:  # 上以外(同じ色しかない)
                     break
-                localindex += directon  # 各方向にひとつづつ進める
+                localindex = np.add(localindex,directon)  # 各方向にひとつづつ進める
         if np.all(self.state == arrayclone):
             return np.zeros(0)
         else:
@@ -138,7 +145,7 @@ class Environment:
 
 if __name__ == "__main__":
     env = Environment()
-    gui = False
+    gui = True
     if gui:
         def gui():
             root = tk.Tk()
@@ -151,16 +158,16 @@ if __name__ == "__main__":
             print("turn of WHITE")
         else:
             print("turn of BLACK")
-        actlist = env.actlist()
+        actlist = env.actlist
         act = False
         while not act:
+            time.sleep(0.5)
             print(actlist)
             print("which one? input number")
             if env.side == WHITE:
                 act = env.action(random.choice(actlist))
             else:
-                n = input()
-                act = env.action(actlist[int(n)])
+                act = env.action(random.choice(actlist))
     winner = env.getwinner()
     print(winner)
     if winner == WHITE:

@@ -34,7 +34,7 @@ class EnvGUI(tk.Frame):
             for j in range(8):
                 self.setStone(i,j,self.env.state[i][j])
         self.master.lift()
-        self.master.after(1000, self.updateStone)
+        self.master.after(300, self.updateStone)
 
 
 if __name__ =="__main__":
