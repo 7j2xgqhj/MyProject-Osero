@@ -3,8 +3,6 @@ import environment
 import random
 import math
 import time
-from multiprocessing import Process
-from multiprocessing import Manager
 
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
@@ -70,6 +68,8 @@ def save(alllog, side, dicta):  # {何手目:{その時の行動候補数:[state
     tables = dicta
     for logs in alllog:
         tables['count']+=1
+        #if tables['count']==3:
+        #    print(logs)
         log = logs[0]
         iswin = logs[1]
         reword = 0
@@ -101,18 +101,18 @@ def save(alllog, side, dicta):  # {何手目:{その時の行動候補数:[state
         np.save('tablewhite.npy', tables)
 
 
-def ep(dicts, alllogs,c):
-    logw = []
-    logb = []
-    dictw = dicts[0]
-    dictb = dicts[1]
-    alllogw = alllogs[0]
-    alllogb = alllogs[1]
+def train(episode):
+    dictw = np.load('tablewhite.npy', allow_pickle=True).item()
+    dictb = np.load('tableblack.npy', allow_pickle=True).item()
     agentw = Agent(side=WHITE, dict=dictw)
     agentb = Agent(side=BLACK, dict=dictb)
+    alllogb=[]
+    alllogw=[]
     env = environment.Environment()
-    for count in range(c):
+    for count in range(episode):
         env.reset()
+        logb=[]
+        logw=[]
         while env.getwinner().size == 0:
             turn = env.getturn()
             state = env.getstate()
@@ -143,28 +143,8 @@ def ep(dicts, alllogs,c):
             logb = [logb, False]
             agentw.reset()
             agentb.reset()
-
-        alllogw.append(logw)
         alllogb.append(logb)
-
-
-def train(episode):
-    manager = Manager()
-    dictw = np.load('tablewhite.npy', allow_pickle=True).item()
-    dictb = np.load('tableblack.npy', allow_pickle=True).item()
-    alllogw = manager.list([])
-    alllogb = manager.list([])
-    core = 2
-    c=int(round(episode/2))
-    p1 = Process(target=ep, args=([dictw, dictb], [alllogw, alllogb], c))
-    p2 = Process(target=ep, args=([dictw, dictb], [alllogw, alllogb], c))
-    # p = [multiprocessing.Process(target=ep,args=([dictw,dictb],[alllogw,alllogb],episode,core)) for i in range(core)]
-    # [p[i].start() for i in range(core)]
-    # [p[i].join() for i in range(core)]
-    p1.start()
-    p2.start()
-    p1.join()
-    p2.join()
+        alllogw.append(logw)
     save(alllog=alllogb, side=BLACK, dicta=dictb)
     save(alllog=alllogw, side=WHITE, dicta=dictw)
 
@@ -221,7 +201,10 @@ if __name__ == "__main__":
     resetW()
     for i in range(1):
         t_s = time.perf_counter()
-        train(1000)
+        train(100)
+        t_e = time.perf_counter()
+        print(t_e - t_s)
+        t_s = time.perf_counter()
         test(whiteside=False, blackside=True, set=100)
         t_e = time.perf_counter()
         print(t_e - t_s)
