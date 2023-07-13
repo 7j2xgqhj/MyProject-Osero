@@ -6,99 +6,117 @@ import time
 
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
-WHITE = 2  # 石が白：2
+WHITE = -1  # 石が白：2
 
-
-
+SIZE=6
 class Agent:
-    # 盤面の情報は、先手・後手(定数)、何手目(計算が簡単)、打てる手数(ついでで使える)で分類して絞り込めるようにすることで計算時間を削減したい
-    # クラス生成→並列処理→全処理終了後saveが理想？
-    # どのみち同じエージェント同士で対局させるのでtrainとかtestもクラス内部でいいのでは？
-    # 並列処理の問題は、クラス生成→並列処理→全処理終了後saveでやると、並列処理中のresetが邪魔
-    # resetの干渉を避けるために、クラス生成の時点から並列化したいが、並列化するとalllogが分かれるためsave時に並列化した処理の記録同士が上書きし合う
-    # alllogを共通化するために、外部から参照渡しを使用する。
-    # ややこしくなってきたのでもう全部外に出す
+    # 盤面の情報は、先手・後手(定数)、何手目(計算が簡単)、石値合計(np.sum(state))。打てる手数(ついでで使える)で分類して絞り込めるようにすることで計算時間を削減したい
     def __init__(self, side, dict):
         self.side = side
         self.tables = dict
+        self.log = []
+        self.gamma = 0.9
+        self.epsilon = 0.8
         if side == BLACK:
             self.turn = 0
         elif side == WHITE:
             self.turn = 1
 
     def reset(self):
+        self.epsilon = 0.8
+        self.log = []
         if self.side == BLACK:
             self.turn = 0
         elif self.side == WHITE:
             self.turn = 1
-
-    def action(self, state, actlist):
+    def action(self, state, actlist,islearn=None):##testとtrainをまとめたい　方策と記録のとこだけ変える
         if len(actlist) == 1:  # 選択肢が一つしかないとき
             act = actlist[0]
         else:
+            key1 = str(self.turn)
+            key2 = str(np.sum(state))
+            key3 = str(len(actlist))
             # テーブルにターン数・行動候補数の記録がある
-            if str(self.turn) in self.tables and str(len(actlist)) in self.tables[str(self.turn)]:
-                statesetlist = self.tables[str(self.turn)][str(len(actlist))]
+            if key1 in self.tables and key2 in self.tables[key1] and key3 in self.tables[key1][key2]:
+                statesetlist = self.tables[key1][key2][key3]
                 statelist = [i[0] for i in statesetlist]
                 # テーブルにおいて、現在の盤面と一致する盤面が存在する場合そのindexを求める
-                indexl = [i for i, x in enumerate(statelist) if np.array_equal(i, state)]
+                indexl=[]
+                indexl = [i for i, x in enumerate(statelist) if np.all(x==state)]
                 # 現在の盤面と一致する盤面が存在するとき
                 if len(indexl) == 1:
-                    act = self.uct(dict=statesetlist[indexl[0]][1], actlist=actlist)
-                    # ここでUCB1 (勝利回数/その選択の試行回数)+√2*√(log(全体の試行回数)/その選択の試行回数)
+                    if islearn != None:
+                        if islearn:
+                            act = self.epsilongreedy(dict=statesetlist[indexl[0]][1], actlist=actlist)
+                        else:
+                            policy = None  ##ここsoftmax入れたい
+                    else:
+                        act = self.maxreword(dict=statesetlist[indexl[0]][1], actlist=actlist)
                 else:
                     act = random.choice(actlist)
             else:
                 act = random.choice(actlist)
+        if islearn:
+            self.log.append([self.turn, actlist, act, state])
+            self.epsilon -= 0.01
         self.turn += 2
         return act
-
-    def uct(self, dict, actlist):  # dictは行動候補辞書{行動候補:[試行回数,勝利回数]}
-        n = sum([i[0] for i in list(dict.values())])
-        actset = []
-        for a in actlist:
-            t, w = dict[str(a[0]) + "," + str(a[1])]
-            ucb = (w / t + math.sqrt(2) * math.sqrt(math.log(n) / t))
-            actset.append([a, ucb])
-        ucblist = [i[1] for i in actset]
-        return actset[ucblist.index(max(ucblist))][0]
-
-
-def save(alllog, side, dicta):  # {何手目:{その時の行動候補数:[state,{行動:[試行回数,勝利回数]}]}}の構成
-    tables = dicta
-    for logs in alllog:
-        tables['count']+=1
-        #if tables['count']==3:
-        #    print(logs)
-        log = logs[0]
-        iswin = logs[1]
-        reword = 0
-        if iswin:
-            reword += 1
-        # stepは[ターン数, 行動候補, 取った行動, その時の盤面]
-        for step in log:
-            if not str(step[0]) in tables:
-                tables[str(step[0])] = {}
+    def epsilongreedy(self, dict, actlist):  # dictは行動候補辞書{行動候補:[試行回数,行動価値]}
+        if self.epsilon > random.random():
+            set = [[a, dict[str(a)][1]] for a in actlist]
+            act = random.choice([i[0] for i in set if i[1] == max([i[1] for i in set])])
+        else:
+            act = random.choice(actlist)
+        return act
+    def maxreword(self, dict, actlist):
+        set = [[a, dict[str(a)][1]] for a in actlist]
+        act=random.choice([i[0] for i in set if i[1] == max([i[1] for i in set])])
+        return act
+    def save(self, reword):  # dict[ターン数][石値合計][選択肢の数]=[[state,{行動:[試行回数,行動価値] ...}],...]
+        # step[0]:ターン数、step[1]:選択肢の配列、step[2]:選択した行動、step[3]:盤面(ndarray)
+        for t, step in enumerate(self.log):
+            # 割引現在価値
+            r = reword * self.gamma ** (len(self.log) - (t + 1))
+            key1 = str(step[0])
+            key2=str(np.sum(step[3]))
+            key3 = str(len(step[1]))
+            key4 = str(step[2])
+            state = step[3]
+            if not key1 in self.tables:
+                self.tables[key1] = {}
+            if not key2 in self.tables[key1]:
+                self.tables[key1][key2] = {}
             # 一致する行動候補数の記録がない
-            if not str(len(step[1])) in tables[str(step[0])]:
-                tables[str(step[0])][str(len(step[1]))] = []
-            index = [j for j, x in enumerate([i[0] for i in tables[str(step[0])][str(len(step[1]))]]) if
-                     np.array_equal(j, step[3])]
+            if not key3 in self.tables[key1][key2]:
+                self.tables[key1][key2][key3] = []
+            # 絞り込んだ盤面の候補の中から一致する盤面のインデックスを返す
+            statesetlist = self.tables[key1][key2][key3]
+            statelist = [i[0] for i in statesetlist]
+            index = [i for i, x in enumerate(statelist) if np.all(x==state)]
             if len(index) == 1:  # 一致する盤面が見つかった時
-                dict = tables[str(step[0])][str(len(step[1]))][index]
-                dict[str(step[2][0]) + "," + str(step[2][1])] += [1, reword]
+                dict = self.tables[key1][key2][key3][index[0]][1]
+                if dict[key4][0]!=0:
+                    dict[key4] += [1, (r - dict[key4][1]) / dict[key4][0]]
+                else:
+                    dict[key4] += [1, r]
             else:  # 盤面が一致しなかったとき
-                stateset = tables[str(step[0])][str(len(step[1]))]  # 盤面の記録
+                # 盤面の記録
                 dict = {}
                 # その盤面で取れる行動の候補を記録　初期化
                 for a in step[1]:
-                    dict[str(a[0]) + "," + str(a[1])] = np.array([0, 0])  # keyは"x,y"
-                dict[str(step[2][0]) + "," + str(step[2][1])] += [1, reword]  # 取った行動の記録
-                stateset.append([step[3], dict])
-    if side == BLACK:
-        np.save('tableblack.npy', tables)
-    elif side == WHITE:
-        np.save('tablewhite.npy', tables)
+                    dict[str(a)] = np.array([0, 0], dtype=float)  # keyは"x,y" ここでnp配列で初期化している
+                dict[key4] += [1, r]  # 取った行動の記録
+                self.tables[key1][key2][key3].append([state, dict])
+            self.tables['count']+=1
+
+    def savedict(self):
+        if self.side == BLACK:
+            np.save('tableblack.npy', self.tables)
+        elif self.side == WHITE:
+            np.save('tablewhite.npy', self.tables)
+    def getfirststep(self):
+        dict=self.tables['2']
+        print(dict)
 
 
 def train(episode):
@@ -106,47 +124,33 @@ def train(episode):
     dictb = np.load('tableblack.npy', allow_pickle=True).item()
     agentw = Agent(side=WHITE, dict=dictw)
     agentb = Agent(side=BLACK, dict=dictb)
-    alllogb=[]
-    alllogw=[]
-    env = environment.Environment()
+    env = environment.Environment(SIZE)
     for count in range(episode):
         env.reset()
-        logb=[]
-        logw=[]
         while env.getwinner().size == 0:
-            turn = env.getturn()
             state = env.getstate()
             actlist = env.actlist
             if env.side == WHITE:
-                act = agentw.action(state=state, actlist=actlist)
-                env.action(act)
-                if len(actlist) > 1:
-                    logw.append([turn, actlist, act, state])
+                act = agentw.action(state=state, actlist=actlist,islearn=True)
             else:
-                act = agentb.action(state=state, actlist=actlist)
-                env.action(act)
-                if len(actlist) > 1:
-                    logb.append([turn, actlist, act, state])
+                act = agentb.action(state=state, actlist=actlist,islearn=True)
+            #time.sleep(10)
+            env.action(act)
         winner = env.getwinner()
         if winner == WHITE:
-            agentw.reset()
-            logw = [logw, True]
-            logb = [logb, False]
-            agentb.reset()
+            agentw.save(1)
+            agentb.save(-1)
         elif winner == BLACK:
-            logw = [logw, False]
-            logb = [logb, True]
-            agentw.reset()
-            agentb.reset()
+            agentw.save(-1)
+            agentb.save(1)
         else:
-            logw = [logw, False]
-            logb = [logb, False]
-            agentw.reset()
-            agentb.reset()
-        alllogb.append(logb)
-        alllogw.append(logw)
-    save(alllog=alllogb, side=BLACK, dicta=dictb)
-    save(alllog=alllogw, side=WHITE, dicta=dictw)
+            agentw.save(-0.5)
+            agentb.save(-0.5)
+        agentw.reset()
+        agentb.reset()
+    agentb.savedict()
+    agentw.savedict()
+    #agentb.getfirststep()
 
 
 def test(whiteside, blackside, set):
@@ -155,10 +159,11 @@ def test(whiteside, blackside, set):
     wwin = 0
     bwin = 0
     n = 0
-    env = environment.Environment()
+    env = environment.Environment(SIZE)
     agentw = Agent(side=WHITE, dict=dictw)
     agentb = Agent(side=BLACK, dict=dictb)
     for count in range(set):
+
         env.reset()
         while env.getwinner().size == 0:
             actlist = env.actlist
@@ -178,17 +183,19 @@ def test(whiteside, blackside, set):
         elif winner == BLACK:
             bwin += 1
         n += 1
+        agentw.reset()
+        agentb.reset()
     print("Wwin" + str(wwin))
     print("Bwin" + str(bwin))
     print("総試合数" + str(n))
 
 
 def resetW():
-    np.save('tablewhite.npy', np.array({'count':0}))
+    np.save('tablewhite.npy', np.array({'count': 0}))
 
 
 def resetB():
-    np.save('tableblack.npy', np.array({'count':0}))
+    np.save('tableblack.npy', np.array({'count': 0}))
 
 
 def dictcheckW():
@@ -199,12 +206,9 @@ def dictcheckW():
 if __name__ == "__main__":
     resetB()
     resetW()
-    for i in range(1):
-        t_s = time.perf_counter()
-        train(100)
-        t_e = time.perf_counter()
-        print(t_e - t_s)
-        t_s = time.perf_counter()
-        test(whiteside=False, blackside=True, set=100)
-        t_e = time.perf_counter()
-        print(t_e - t_s)
+    for i in range(5):
+        #t_s = time.perf_counter()
+        #train(1000)
+        #t_e = time.perf_counter()
+        #print(t_e - t_s)
+        test(whiteside=False,blackside=True,set=100)

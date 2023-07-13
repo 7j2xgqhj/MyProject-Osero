@@ -7,7 +7,7 @@ import time
 import operator
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
-WHITE = 2  # 石が白：2
+WHITE = -1  # 石が白：2
 
 
 # 要件
@@ -16,16 +16,17 @@ WHITE = 2  # 石が白：2
 #先手が黒、後手が白
 class Environment:
     # 初期化
-    def __init__(self):
+    def __init__(self,size=8):
+        self.size=size#8 or 6 or 4
         self.reset()
 
     # stateの初期化
     def stateinit(self):
-        self.state = np.zeros((8, 8))
-        self.state[3][3] = WHITE
-        self.state[4][3] = BLACK
-        self.state[3][4] = BLACK
-        self.state[4][4] = WHITE
+        self.state = np.zeros((self.size, self.size))
+        self.state[int(self.size/2-1)][int(self.size/2-1)] = WHITE
+        self.state[int(self.size/2)][int(self.size/2-1)] = BLACK
+        self.state[int(self.size/2-1)][int(self.size/2)] = BLACK
+        self.state[int(self.size/2)][int(self.size/2)] = WHITE
     def reset(self):
         self.stateinit()
         self.side = BLACK
@@ -61,8 +62,8 @@ class Environment:
     def makeactlist(self):
         actionlist = []
         statecopy = np.copy(self.state)
-        for i in range(8):
-            for j in range(8):
+        for i in range(int(self.size)):
+            for j in range(int(self.size)):
                 if statecopy[i][j] == BLANK and self.reversestones([i, j]).size != 0:
                     actionlist.append([i, j])
         if len(actionlist) == 0: actionlist.append([])
@@ -123,10 +124,9 @@ class Environment:
                 directon = [-1, -1]
             isdifferentcoloredstone = False
             localindex = np.add(localindex,directon) # 各方向にひとつづつ進める
-            while np.all(localindex >= 0) and np.all(localindex < 8):
-
+            while np.all(localindex >= 0) and np.all(localindex < int(self.size)):
                 if arrayclone[localindex[0]][localindex[1]] == BLANK: break
-                if arrayclone[localindex[0]][localindex[1]] != self.side:  # 異なる色の石がある
+                if arrayclone[localindex[0]][localindex[1]] == -1*self.side:  # 異なる色の石がある
                     isdifferentcoloredstone = True
                     returnstonelist.append(np.copy(localindex))
                 elif isdifferentcoloredstone:  # ↑の状態を経た後かつ同じ色の石がある ひっくり返せる
@@ -135,7 +135,7 @@ class Environment:
                     break
                 else:  # 上以外(同じ色しかない)
                     break
-                localindex = np.add(localindex,directon)  # 各方向にひとつづつ進める
+                localindex += directon  # 各方向にひとつづつ進める
         if np.all(self.state == arrayclone):
             return np.zeros(0)
         else:
@@ -144,7 +144,7 @@ class Environment:
 
 
 if __name__ == "__main__":
-    env = Environment()
+    env = Environment(4)
     gui = True
     if gui:
         def gui():

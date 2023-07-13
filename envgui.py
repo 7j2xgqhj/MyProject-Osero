@@ -2,6 +2,9 @@ import tkinter as tk
 import numpy as np
 import environment
 WINDOW_WIDTH=WINDOW_HIGHT=CANVAS_WIDTH=CANVAS_HIGHT=400
+BLANK = 0  # 石が空：0
+BLACK = 1  # 石が黒：1
+WHITE = -1  # 石が白：-1
 class EnvGUI(tk.Frame):
     def __init__(self,env,master):
         super().__init__(master)
@@ -22,11 +25,11 @@ class EnvGUI(tk.Frame):
         self.updateStone()
         self.mainloop()
     def setStone(self,x,y,color:int):
-        if color==0:
+        if color==BLANK:
             self.canvas.itemconfig(tagOrId=self.idlist[x][y],fill='green',outline='green')
-        elif color==1:
+        elif color==BLACK:
             self.canvas.itemconfig(tagOrId=self.idlist[x][y], fill='black', outline='black')
-        elif color==2:
+        elif color==WHITE:
             self.canvas.itemconfig(tagOrId=self.idlist[x][y], fill='white', outline='white')
         self.canvas.update()
     def updateStone(self):
