@@ -9,7 +9,7 @@ BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
-SIZE = 4
+SIZE = 6
 GAMMA = 0.9  # 割引率
 EPSILON = 0.8
 ATTENUATION = EPSILON / 80  # 減衰率
@@ -236,19 +236,30 @@ def dictcheckW():
 
 
 if __name__ == "__main__":
-    resetB()
-    resetW()
-    num=0
-    x=[0]
-    y=[test(whiteside=False, blackside=True, set=1000)[1]]
-    for i in range(40):
-        train(100)
-        num+=100
-        x.append(num)
-        y.append(test(whiteside=False, blackside=True, set=1000)[1])
-    plt.plot(x, y)
+    colors=["blue", "green", "red", "black","yellow"]
+    fig, ax = plt.subplots()
+    ax.set_xlabel('win')  # x軸ラベル
+    ax.set_ylabel('train')  # y軸ラベル
+    ax.grid()
+    nums=[10,2,1,0.5,0.1]
+    def tr():
+        resetB()
+        resetW()
+        num=0
+        x=[0]
+        y=[test(whiteside=False, blackside=True, set=1000)[1]]
+        for i in range(40):
+            train(1000)
+            num+=100
+            x.append(num)
+            y.append(test(whiteside=False, blackside=True, set=1000)[1])
+        return x,y
+    for n,c in zip(nums,colors):
+        EPTEMPERATURE = n
+        x, y = tr()
+        ax.plot(x, y, color=c, label=str(EPTEMPERATURE))
+    plt.legend()
     plt.show()
-
 #    for i in range(5):
 #       cnum = num
 #      for j in range(9):
