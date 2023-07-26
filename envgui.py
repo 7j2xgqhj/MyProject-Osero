@@ -12,15 +12,16 @@ class EnvGUI(tk.Frame):
         self.env=env
         self.canvas= tk.Canvas(master, bg = "green"
                                ,width=CANVAS_WIDTH,height=CANVAS_HIGHT)
-        for i in range(7):
-            self.canvas.create_line((i + 1) * (CANVAS_WIDTH / 8), 0, (i + 1) * (CANVAS_WIDTH / 8), CANVAS_HIGHT)
-            self.canvas.create_line(0,(i + 1) * (CANVAS_HIGHT / 8),CANVAS_WIDTH,(i + 1) * (CANVAS_HIGHT / 8))
+        self.size=env.size
+        for i in range(self.size-1):
+            self.canvas.create_line((i + 1) * (CANVAS_WIDTH / self.size), 0, (i + 1) * (CANVAS_WIDTH / self.size), CANVAS_HIGHT)
+            self.canvas.create_line(0,(i + 1) * (CANVAS_HIGHT / self.size),CANVAS_WIDTH,(i + 1) * (CANVAS_HIGHT / self.size))
         self.canvas.pack()
-        self.idlist=[[0 for x in range(8)] for y in range(8)]
-        for i in range(8):
-            for j in range(8):
-                self.idlist[i][j]=self.canvas.create_oval(i*CANVAS_WIDTH/8+1, 1+j*CANVAS_HIGHT/8+1,
-                                                     (i+1)*CANVAS_WIDTH/8-1, (j+1)*CANVAS_HIGHT/8-1,
+        self.idlist=[[0 for x in range(self.size)] for y in range(self.size)]
+        for i in range(self.size):
+            for j in range(self.size):
+                self.idlist[i][j]=self.canvas.create_oval(i*CANVAS_WIDTH/self.size+1, 1+j*CANVAS_HIGHT/self.size+1,
+                                                     (i+1)*CANVAS_WIDTH/self.size-1, (j+1)*CANVAS_HIGHT/self.size-1,
                                                      fill='green',outline='green')
         self.updateStone()
         self.mainloop()
@@ -33,8 +34,8 @@ class EnvGUI(tk.Frame):
             self.canvas.itemconfig(tagOrId=self.idlist[x][y], fill='white', outline='white')
         self.canvas.update()
     def updateStone(self):
-        for i in range(8):
-            for j in range(8):
+        for i in range(self.size):
+            for j in range(self.size):
                 self.setStone(i,j,self.env.state[i][j])
         self.master.lift()
         self.master.after(300, self.updateStone)

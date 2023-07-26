@@ -1,7 +1,10 @@
 import numpy as np
 import environment
-import random
+from random import choice
+from random import random
+from numpy.random import choice as npchoice
 import matplotlib.pyplot as plt
+from numpy import exp
 import math
 import time
 
@@ -9,16 +12,16 @@ BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
-SIZE = 6
-GAMMA = 0.9  # 割引率
-EPSILON = 0.8
-ATTENUATION = EPSILON / 80  # 減衰率
-TEMPERATURE =1#温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
-EPTEMPERATURE=0.4
+SIZE = 4
+GAMMA = 0.7  # 割引率
+EPSILON = 0.9
+TEMPERATURE = 1  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
+EPTEMPERATURE = 1
 
-WINREWORD=1
-LOSEREWORD=-1
-DRAWREWORD=-0.5
+WINREWORD = 1
+LOSEREWORD = -1 * WINREWORD
+DRAWREWORD = 0.5
+
 
 class Agent:
     # 盤面の情報は、先手・後手(定数)、何手目(計算が簡単)、石値合計(np.sum(state))。打てる手数(ついでで使える)で分類して絞り込めるようにすることで計算時間を削減したい
@@ -28,16 +31,14 @@ class Agent:
         self.log = []
         self.gamma = GAMMA
         self.epsilon = EPSILON
-        self.temperature=TEMPERATURE
+        self.temperature = TEMPERATURE
         if side == BLACK:
             self.turn = 0
         elif side == WHITE:
             self.turn = 1
 
     def reset(self):
-        self.epsilon = EPSILON
-        self.log = []
-        self.temperature = TEMPERATURE
+        self.epsilon, self.log, self.temperature = EPSILON, [], TEMPERATURE
         if self.side == BLACK:
             self.turn = 0
         elif self.side == WHITE:
@@ -47,16 +48,12 @@ class Agent:
         if len(actlist) == 1:  # 選択肢が一つしかないとき
             act = actlist[0]
         else:
-            key1 = str(self.turn)
-            key2 = str(np.sum(state))
-            key3 = str(len(actlist))
+            key1, key2, key3 = str(self.turn), str(np.sum(state)), str(len(actlist))
             # テーブルにターン数・行動候補数の記録がある
             if key1 in self.tables and key2 in self.tables[key1] and key3 in self.tables[key1][key2]:
                 statesetlist = self.tables[key1][key2][key3]
-                statelist = [i[0] for i in statesetlist]
                 # テーブルにおいて、現在の盤面と一致する盤面が存在する場合そのindexを求める
-                indexl = []
-                indexl = [i for i, x in enumerate(statelist) if np.all(x == state)]
+                indexl = [i for i, x in enumerate([i[0] for i in statesetlist]) if np.all(x == state)]
                 # 現在の盤面と一致する盤面が存在するとき
                 if len(indexl) == 1:
                     if islearn != None:
@@ -67,45 +64,43 @@ class Agent:
                     else:
                         act = self.maxreword(dict=statesetlist[indexl[0]][1], actlist=actlist)
                 else:
-                    act = random.choice(actlist)
+                    act = choice(actlist)
             else:
-                act = random.choice(actlist)
+                act = choice(actlist)
         if islearn:
             self.log.append([self.turn, actlist, act, state])
-            self.epsilon -= ATTENUATION
         self.turn += 2
         return act
 
     def epsilongreedy(self, dict, actlist):  # dictは行動候補辞書{行動候補:[試行回数,行動価値]}
-        if self.epsilon > random.random():
+        if self.epsilon > random():
             set = [[a, dict[str(a)][1]] for a in actlist]
-            act = random.choice([i[0] for i in set if i[1] == max([i[1] for i in set])])
+            act = choice([i[0] for i in set if i[1] == max([i[1] for i in set])])
         else:
             vlist = [dict[str(a)][1] for a in actlist]
-            q = [np.exp(a / EPTEMPERATURE) for a in vlist]
+            q = [exp(a / EPTEMPERATURE) for a in vlist]
             plist = [qa / sum(q) for qa in q]
-            act = actlist[np.random.choice(list(range(len(actlist))), p=plist)]
+            act = actlist[npchoice(list(range(len(actlist))), p=plist)]
         return act
 
     def maxreword(self, dict, actlist):
         set = [[a, dict[str(a)][1]] for a in actlist]
-        act = random.choice([i[0] for i in set if i[1] == max([i[1] for i in set])])
+        act = choice([i[0] for i in set if i[1] == max([i[1] for i in set])])
         return act
+
     def softmaxchoice(self, dict, actlist):
         vlist = [dict[str(a)][1] for a in actlist]
-        q = [np.exp(a / self.temperature) for a in vlist]
-        plist=[qa/sum(q) for qa in q]
-        act = actlist[np.random.choice(list(range(len(actlist))), p=plist)]
+        q = [exp(a / self.temperature) for a in vlist]
+        plist = [qa / sum(q) for qa in q]
+        act = actlist[npchoice(list(range(len(actlist))), p=plist)]
         return act
+
     def save(self, reword):  # dict[ターン数][石値合計][選択肢の数]=[[state,{行動:[試行回数,行動価値] ...}],...]
         # step[0]:ターン数、step[1]:選択肢の配列、step[2]:選択した行動、step[3]:盤面(ndarray)
         for t, step in enumerate(self.log):
             # 割引現在価値
             r = reword * self.gamma ** (len(self.log) - (t + 1))
-            key1 = str(step[0])
-            key2 = str(np.sum(step[3]))
-            key3 = str(len(step[1]))
-            key4 = str(step[2])
+            key1, key2, key3, key4 = str(step[0]), str(np.sum(step[3])), str(len(step[1])), str(step[2])
             state = step[3]
             if not key1 in self.tables:
                 self.tables[key1] = {}
@@ -116,8 +111,7 @@ class Agent:
                 self.tables[key1][key2][key3] = []
             # 絞り込んだ盤面の候補の中から一致する盤面のインデックスを返す
             statesetlist = self.tables[key1][key2][key3]
-            statelist = [i[0] for i in statesetlist]
-            index = [i for i, x in enumerate(statelist) if np.all(x == state)]
+            index = [i for i, x in enumerate([i[0] for i in statesetlist]) if np.all(x == state)]
             if len(index) == 1:  # 一致する盤面が見つかった時
                 dict = self.tables[key1][key2][key3][index[0]][1]
                 if dict[key4][0] != 0:
@@ -154,14 +148,11 @@ def train(episode):
     for count in range(episode):
         env.reset()
         while env.getwinner().size == 0:
-            state = env.getstate()
-            actlist = env.actlist
+            state, actlist = env.getstate(), env.actlist
             if env.side == WHITE:
-                act = agentw.action(state=state, actlist=actlist, islearn=True)
+                env.action(agentw.action(state=state, actlist=actlist, islearn=True))
             else:
-                act = agentb.action(state=state, actlist=actlist, islearn=True)
-            # time.sleep(10)
-            env.action(act)
+                env.action(agentb.action(state=state, actlist=actlist, islearn=True))
         winner = env.getwinner()
         if winner == WHITE:
             agentw.save(WINREWORD)
@@ -176,7 +167,6 @@ def train(episode):
         agentb.reset()
     agentb.savedict()
     agentw.savedict()
-    # agentb.getfirststep()
 
 
 def test(whiteside, blackside, set):
@@ -189,8 +179,6 @@ def test(whiteside, blackside, set):
     env = environment.Environment(SIZE)
     agentw = Agent(side=WHITE, dict=dictw)
     agentb = Agent(side=BLACK, dict=dictb)
-    scoreB = 0
-    scoreW = 0
     for count in range(set):
         env.reset()
         while env.getwinner().size == 0:
@@ -199,12 +187,12 @@ def test(whiteside, blackside, set):
                 if whiteside:
                     env.action(agentw.action(state=env.getstate(), actlist=actlist))
                 else:
-                    env.action(random.choice(actlist))
+                    env.action(choice(actlist))
             else:
                 if blackside:
                     env.action(agentb.action(state=env.getstate(), actlist=actlist))
                 else:
-                    env.action(random.choice(actlist))
+                    env.action(choice(actlist))
         winner = env.getwinner()
         if winner == WHITE:
             wwin += 1
@@ -215,11 +203,11 @@ def test(whiteside, blackside, set):
         n += 1
         agentw.reset()
         agentb.reset()
-    print("Wwin:" + str(wwin)+"回")
-    print("Bwin:" + str(bwin)+"回")
-    print("draw:"+str(draw)+"回")
-    print("総試合数:" + str(n)+"回")
-    return [wwin,bwin,draw,n]
+    print("Wwin:" + str(wwin) + "回")
+    print("Bwin:" + str(bwin) + "回")
+    print("draw:" + str(draw) + "回")
+    print("総試合数:" + str(n) + "回")
+    return [wwin, bwin, draw, n]
 
 
 def resetW():
@@ -235,31 +223,50 @@ def dictcheckW():
     print(dictw)
 
 
-if __name__ == "__main__":
-    colors=["blue", "green", "red", "black","yellow"]
+def param():
+    colors = ["blue","red","green","yellow","black"]
     fig, ax = plt.subplots()
-    ax.set_xlabel('win')  # x軸ラベル
-    ax.set_ylabel('train')  # y軸ラベル
+    ax.set_xlabel('train')  # x軸ラベル
+    ax.set_ylabel('win')  # y軸ラベル
     ax.grid()
-    nums=[10,2,1,0.5,0.1]
+    nums = [0.9, 0.8, 0.7, 0.6, 0.5]
+
     def tr():
         resetB()
         resetW()
-        num=0
-        x=[0]
-        y=[test(whiteside=False, blackside=True, set=1000)[1]]
+        testset = 1000
+        num = 0
+        x = [0]
+        c = 100
+        ave = np.array([test(whiteside=False, blackside=True, set=testset)[1], testset])
+        y = [ave[0] / ave[1]]
         for i in range(40):
-            train(1000)
-            num+=100
+            train(c)
+            num += c
             x.append(num)
-            y.append(test(whiteside=False, blackside=True, set=1000)[1])
-        return x,y
-    for n,c in zip(nums,colors):
-        EPTEMPERATURE = n
+            ave += test(whiteside=False, blackside=True, set=testset)[1], testset
+            y.append(ave[0] / ave[1])
+        return x, y
+
+    for n, c in zip(nums, colors):
+        EPSILON = n
         x, y = tr()
-        ax.plot(x, y, color=c, label=str(EPTEMPERATURE))
+        ax.plot(x, y, color=c, label=str(EPSILON))
     plt.legend()
     plt.show()
+
+def t():
+    log = np.load('log.npy', allow_pickle=True).item()
+
+if __name__ == "__main__":
+    resetB()
+    resetW()
+    np.save('log.npy', np.array([[0,test(whiteside=False, blackside=True, set=1000)[1]/1000]]))
+    log = np.load('log.npy', allow_pickle=True).item()
+    train(1)
+    np.append(log,[1, test(whiteside=False, blackside=True, set=1000)[1] / 1000])
+    np.save('log.npy', log)
+    t()
 #    for i in range(5):
 #       cnum = num
 #      for j in range(9):
