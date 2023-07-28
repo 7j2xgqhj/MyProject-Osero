@@ -126,7 +126,7 @@ class Agent:
                     dict[str(a)] = np.array([0, 0], dtype=float)  # keyは"x,y" ここでnp配列で初期化している
                 dict[key4] += [1, r]  # 取った行動の記録
                 self.tables[key1][key2][key3].append([state, dict])
-            self.tables['count'] += 1
+        self.tables['count'] += 1
 
     def savedict(self):
         if self.side == BLACK:
@@ -172,6 +172,7 @@ def train(episode):
 def test(whiteside, blackside, set):
     dictw = np.load('tablewhite.npy', allow_pickle=True).item()
     dictb = np.load('tableblack.npy', allow_pickle=True).item()
+    lognpz = np.load('log.npz')
     wwin = 0
     bwin = 0
     draw = 0
@@ -207,9 +208,54 @@ def test(whiteside, blackside, set):
     print("Bwin:" + str(bwin) + "回")
     print("draw:" + str(draw) + "回")
     print("総試合数:" + str(n) + "回")
+    logx=lognpz['x']
+    logy=lognpz['y']
+    logave=lognpz['ave']
+    logy=np.append(logy, bwin / n )
+    logx=np.append(logx,dictb['count'])
+    logave=np.append(logave,np.mean(logy))
+    np.savez('log.npz', x=logx,y=logy,ave=logave)
     return [wwin, bwin, draw, n]
 
-
+def test2(whiteside, blackside, set):
+    dictw = np.load('tablewhite.npy', allow_pickle=True).item()
+    dictb = np.load('tableblack.npy', allow_pickle=True).item()
+    wwin = 0
+    bwin = 0
+    draw = 0
+    n = 0
+    env = environment.Environment(SIZE)
+    agentw = Agent(side=WHITE, dict=dictw)
+    agentb = Agent(side=BLACK, dict=dictb)
+    for count in range(set):
+        env.reset()
+        while env.getwinner().size == 0:
+            actlist = env.actlist
+            if env.side == WHITE:
+                if whiteside:
+                    env.action(agentw.action(state=env.getstate(), actlist=actlist,islearn=False))
+                else:
+                    env.action(choice(actlist))
+            else:
+                if blackside:
+                    env.action(agentb.action(state=env.getstate(), actlist=actlist,islearn=False))
+                else:
+                    env.action(choice(actlist))
+        winner = env.getwinner()
+        if winner == WHITE:
+            wwin += 1
+        elif winner == BLACK:
+            bwin += 1
+        else:
+            draw += 1
+        n += 1
+        agentw.reset()
+        agentb.reset()
+    print("Wwin:" + str(wwin) + "回")
+    print("Bwin:" + str(bwin) + "回")
+    print("draw:" + str(draw) + "回")
+    print("総試合数:" + str(n) + "回")
+    return [wwin, bwin, draw, n]
 def resetW():
     np.save('tablewhite.npy', np.array({'count': 0}))
 
@@ -218,13 +264,17 @@ def resetB():
     np.save('tableblack.npy', np.array({'count': 0}))
 
 
+def resetlog():
+    np.savez('log.npz', x=np.array([]), y=np.array([]),ave=np.array([]))
+
+
 def dictcheckW():
     dictw = np.load('tablewhite.npy', allow_pickle=True).item()
     print(dictw)
 
 
 def param():
-    colors = ["blue","red","green","yellow","black"]
+    colors = ["blue", "red", "green", "yellow", "black"]
     fig, ax = plt.subplots()
     ax.set_xlabel('train')  # x軸ラベル
     ax.set_ylabel('win')  # y軸ラベル
@@ -255,23 +305,25 @@ def param():
     plt.legend()
     plt.show()
 
-def t():
-    log = np.load('log.npy', allow_pickle=True).item()
 
-if __name__ == "__main__":
+def t():
+    testset = 100
     resetB()
     resetW()
-    np.save('log.npy', np.array([[0,test(whiteside=False, blackside=True, set=1000)[1]/1000]]))
-    log = np.load('log.npy', allow_pickle=True).item()
-    train(1)
-    np.append(log,[1, test(whiteside=False, blackside=True, set=1000)[1] / 1000])
-    np.save('log.npy', log)
-    t()
-#    for i in range(5):
-#       cnum = num
-#      for j in range(9):
-#         print("追加" + str(cnum)+"回の訓練")
-#        train(cnum)
-#       num += cnum
-#      print("合計" + str(num)+"回の訓練")
-#     test(whiteside=False, blackside=True, set=100)
+    resetlog()
+    test(whiteside=False, blackside=True, set=testset)
+    for i in range(40):
+        train(100)
+        test(whiteside=False, blackside=True, set=testset)
+    lognpz = np.load('log.npz')
+    logx = lognpz['x']
+    logy = lognpz['ave']
+    plt.plot(logx, logy)
+    plt.show()
+
+if __name__ == "__main__":
+    TEMPERATURE=0
+    test2(whiteside=False, blackside=True, set=100)
+
+
+
