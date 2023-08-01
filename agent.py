@@ -12,7 +12,7 @@ BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
-SIZE = 4
+SIZE = 8
 GAMMA = 0.7  # 割引率
 EPSILON = 0.9
 TEMPERATURE = 1  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
@@ -25,7 +25,8 @@ DRAWREWORD = 0.5
 
 class Agent:
     # 盤面の情報は、先手・後手(定数)、何手目(計算が簡単)、石値合計(np.sum(state))。打てる手数(ついでで使える)で分類して絞り込めるようにすることで計算時間を削減したい
-    def __init__(self, side, dict):
+    def __init__(self, side, dict, mode=0):
+        self.mode = mode
         self.side = side
         self.tables = dict
         self.log = []
@@ -44,9 +45,11 @@ class Agent:
         elif self.side == WHITE:
             self.turn = 1
 
-    def action(self, state, actlist, islearn=None):  ##testとtrainをまとめたい　方策と記録のとこだけ変える
+    def action(self, state, actlist):  ##testとtrainをまとめたい　方策と記録のとこだけ変える
         if len(actlist) == 1:  # 選択肢が一つしかないとき
             act = actlist[0]
+        elif self.mode == 1 and self.epsilon <= random():
+            act = choice(actlist)
         else:
             key1, key2, key3 = str(self.turn), str(np.sum(state)), str(len(actlist))
             # テーブルにターン数・行動候補数の記録がある
@@ -56,31 +59,17 @@ class Agent:
                 indexl = [i for i, x in enumerate([i[0] for i in statesetlist]) if np.all(x == state)]
                 # 現在の盤面と一致する盤面が存在するとき
                 if len(indexl) == 1:
-                    if islearn != None:
-                        if islearn:
-                            act = self.epsilongreedy(dict=statesetlist[indexl[0]][1], actlist=actlist)
-                        else:
-                            act = self.softmaxchoice(dict=statesetlist[indexl[0]][1], actlist=actlist)
+                    if self.mode == 2:
+                        act = self.softmaxchoice(dict=statesetlist[indexl[0]][1], actlist=actlist)
                     else:
                         act = self.maxreword(dict=statesetlist[indexl[0]][1], actlist=actlist)
                 else:
                     act = choice(actlist)
             else:
                 act = choice(actlist)
-        if islearn:
+        if self.mode == 1:
             self.log.append([self.turn, actlist, act, state])
         self.turn += 2
-        return act
-
-    def epsilongreedy(self, dict, actlist):  # dictは行動候補辞書{行動候補:[試行回数,行動価値]}
-        if self.epsilon > random():
-            set = [[a, dict[str(a)][1]] for a in actlist]
-            act = choice([i[0] for i in set if i[1] == max([i[1] for i in set])])
-        else:
-            vlist = [dict[str(a)][1] for a in actlist]
-            q = [exp(a / EPTEMPERATURE) for a in vlist]
-            plist = [qa / sum(q) for qa in q]
-            act = actlist[npchoice(list(range(len(actlist))), p=plist)]
         return act
 
     def maxreword(self, dict, actlist):
@@ -142,17 +131,17 @@ class Agent:
 def train(episode):
     dictw = np.load('tablewhite.npy', allow_pickle=True).item()
     dictb = np.load('tableblack.npy', allow_pickle=True).item()
-    agentw = Agent(side=WHITE, dict=dictw)
-    agentb = Agent(side=BLACK, dict=dictb)
+    agentw = Agent(side=WHITE, dict=dictw, mode=1)
+    agentb = Agent(side=BLACK, dict=dictb, mode=1)
     env = environment.Environment(SIZE)
     for count in range(episode):
         env.reset()
         while env.getwinner().size == 0:
             state, actlist = env.getstate(), env.actlist
             if env.side == WHITE:
-                env.action(agentw.action(state=state, actlist=actlist, islearn=True))
+                env.action(agentw.action(state=state, actlist=actlist))
             else:
-                env.action(agentb.action(state=state, actlist=actlist, islearn=True))
+                env.action(agentb.action(state=state, actlist=actlist))
         winner = env.getwinner()
         if winner == WHITE:
             agentw.save(WINREWORD)
@@ -208,14 +197,15 @@ def test(whiteside, blackside, set):
     print("Bwin:" + str(bwin) + "回")
     print("draw:" + str(draw) + "回")
     print("総試合数:" + str(n) + "回")
-    logx=lognpz['x']
-    logy=lognpz['y']
-    logave=lognpz['ave']
-    logy=np.append(logy, bwin / n )
-    logx=np.append(logx,dictb['count'])
-    logave=np.append(logave,np.mean(logy))
-    np.savez('log.npz', x=logx,y=logy,ave=logave)
+    logx = lognpz['x']
+    logy = lognpz['y']
+    logave = lognpz['ave']
+    logy = np.append(logy, bwin / n)
+    logx = np.append(logx, dictb['count'])
+    logave = np.append(logave, np.mean(logy))
+    np.savez('log.npz', x=logx, y=logy, ave=logave)
     return [wwin, bwin, draw, n]
+
 
 def test2(whiteside, blackside, set):
     dictw = np.load('tablewhite.npy', allow_pickle=True).item()
@@ -233,12 +223,12 @@ def test2(whiteside, blackside, set):
             actlist = env.actlist
             if env.side == WHITE:
                 if whiteside:
-                    env.action(agentw.action(state=env.getstate(), actlist=actlist,islearn=False))
+                    env.action(agentw.action(state=env.getstate(), actlist=actlist))
                 else:
                     env.action(choice(actlist))
             else:
                 if blackside:
-                    env.action(agentb.action(state=env.getstate(), actlist=actlist,islearn=False))
+                    env.action(agentb.action(state=env.getstate(), actlist=actlist))
                 else:
                     env.action(choice(actlist))
         winner = env.getwinner()
@@ -256,6 +246,8 @@ def test2(whiteside, blackside, set):
     print("draw:" + str(draw) + "回")
     print("総試合数:" + str(n) + "回")
     return [wwin, bwin, draw, n]
+
+
 def resetW():
     np.save('tablewhite.npy', np.array({'count': 0}))
 
@@ -265,7 +257,7 @@ def resetB():
 
 
 def resetlog():
-    np.savez('log.npz', x=np.array([]), y=np.array([]),ave=np.array([]))
+    np.savez('log.npz', x=np.array([]), y=np.array([]), ave=np.array([]))
 
 
 def dictcheckW():
@@ -307,13 +299,10 @@ def param():
 
 
 def t():
-    testset = 100
-    resetB()
-    resetW()
-    resetlog()
+    testset = 1000
     test(whiteside=False, blackside=True, set=testset)
-    for i in range(40):
-        train(100)
+    for i in range(10):
+        train(1000)
         test(whiteside=False, blackside=True, set=testset)
     lognpz = np.load('log.npz')
     logx = lognpz['x']
@@ -321,9 +310,6 @@ def t():
     plt.plot(logx, logy)
     plt.show()
 
+
 if __name__ == "__main__":
-    TEMPERATURE=0
-    test2(whiteside=False, blackside=True, set=100)
-
-
-
+    t()
