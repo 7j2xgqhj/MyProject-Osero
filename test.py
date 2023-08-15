@@ -4,7 +4,6 @@ import chainer
 import chainer.links as L
 from chainer import optimizers, serializers
 import chainer.functions as F
-
 n_epoch = 50000  # エポック数(パラメータ更新回数)
 
 # Prepare dataset

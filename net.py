@@ -32,6 +32,7 @@ class Net:
         return self.model(chainer.Variable(np.array([sorce], dtype=np.float32))).data[0][0]
     def train(self,log,r):#log =[[盤面番号,行動のx,行動のy],...]
         source= np.array(log, dtype=np.float32)
+        print(source)
         target = np.array([[(self.getQ(i)+r)/2] for i in log], dtype=np.float32)
         loss_val = 100
         epoch = 0
