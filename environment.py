@@ -6,7 +6,6 @@ import random
 import time
 from numpy import add
 from numpy import copy
-from copy import deepcopy
 import operator
 
 BLANK = 0  # 石が空：0
@@ -20,18 +19,16 @@ WHITE = -1  # 石が白：2
 # 先手が黒、後手が白
 class Environment:
     # 初期化
-    def __init__(self, size=8,iskeeplog=False):
-        self.iskeeplog=iskeeplog
+    def __init__(self, size=8):
         self.size = int(size)  # 8 or 6 or 4
         self.reset()
 
     # stateの初期化
     def stateinit(self):
-        self.state = np.zeros((self.size, self.size))
+        self.state = np.zeros((self.size, self.size), dtype=np.int8)
         c1, c2 = int(self.size / 2 - 1), int(self.size / 2)
-        self.state[c1][c1] = self.state[c2][c2] = WHITE
-        self.state[c2][c1] = self.state[c1][c2] = BLACK
-        self.log=[self.state]
+        self.state[c1][c1], self.state[c2][c2] = WHITE, WHITE
+        self.state[c2][c1], self.state[c1][c2] = BLACK, BLACK
 
     def reset(self):
         self.stateinit()
@@ -41,8 +38,7 @@ class Environment:
     # stateの出力
     def getstate(self):
         return copy(self.state)
-    def getactlist(self):
-        return deepcopy(self.actlist)
+
     # 勝者の出力
     def getwinner(self):
         return copy(self.winner)
@@ -50,21 +46,13 @@ class Environment:
     def getside(self):
         return self.side
 
+    def getturn(self):
+        return self.turn
+
     # 手番の交代
     def turn_change(self):
         self.side *= -1
-    def backlog(self):
-        if self.getwinner()!=[]:
-            self.isPassed=True
-        else:
-            self.isPassed = False
-            print(self.log)
-        self.state=self.log[-2]
-        self.makeactlist()
-        self.turn-=1
-        self.turn_change()
-        self.decidewinner()
-        del self.log[-1]
+
     # self.actlistを更新
     def makeactlist(self):
         actionlist, statecopy = [], copy(self.state)
@@ -85,8 +73,6 @@ class Environment:
                 self.state, self.isPassed = self.reversestones(act), False
             self.turn += 1
             self.turn_change(), self.makeactlist()
-            if self.iskeeplog:
-                self.log.append(self.state)
             return True
         else:
             return False
@@ -105,7 +91,8 @@ class Environment:
     def reversestones(self, index):  # 引数に座標、出力は変化後の盤面orダメだったらfalse
         arrayclone = copy(self.state)  # 参照渡し対策　必須
         for i in [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]]:
-            localindex, directon, returnstonelist, isdifferentcoloredstone = np.array(index), i, [], False
+            localindex, directon, returnstonelist, isdifferentcoloredstone = np.array(index,
+                                                                                      dtype=np.int8), i, [], False
             localindex = add(localindex, directon)  # 各方向にひとつづつ進める
             while np.all(localindex >= 0) and np.all(localindex < self.size):
                 if arrayclone[localindex[0]][localindex[1]] == BLANK:
@@ -122,7 +109,7 @@ class Environment:
                     break
                 localindex = add(localindex, directon)  # 各方向にひとつづつ進める
         if np.all(self.state == arrayclone):
-            return np.zeros(0)
+            return np.zeros(0, dtype=np.int8)
         else:
             arrayclone[index[0]][index[1]] = self.side
             return arrayclone
