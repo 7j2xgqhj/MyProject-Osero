@@ -1,18 +1,19 @@
+import time
+
 import numpy as np
 import environment
 from random import choice
 from random import random
 from numpy.random import choice as npchoice
-import matplotlib.pyplot as plt
 from numpy import exp
-import tracemalloc
-import qtable
-import gc
+import pickle
+import os
+import log
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
-SIZE = 8
+SIZE = 4
 GAMMA = 0.7  # 割引率
 EPSILON = 0.9
 TEMPERATURE = 1  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
@@ -22,13 +23,36 @@ WINREWORD = 1
 LOSEREWORD = -1 * WINREWORD
 DRAWREWORD = 0.5
 
+PATH = "table"+str(SIZE)+"/"
+
+
+def qtableread(filename: str):
+    if os.path.isfile(PATH + "a" + filename + ".pkl"):
+        with open(PATH + "a" + filename + ".pkl", 'rb') as f:
+            data = pickle.load(f)
+        return data
+    else:
+        return
+
+
+def qtablesave(filename: str, obj: dict):
+    with open(PATH + "a" + filename + ".pkl", 'wb') as f:
+        pickle.dump(obj, f)
+
+
+def statetonum(state):
+    statestr = ""
+    for i in state:
+        for j in i:
+            statestr += str(j + 1)
+    return statestr
+
 
 class Agent:
     # 盤面の情報は、先手・後手(定数)、何手目(計算が簡単)、石値合計(np.sum(state))。打てる手数(ついでで使える)で分類して絞り込めるようにすることで計算時間を削減したい
-    def __init__(self, side, dict, mode=0):
+    def __init__(self, side, mode=0):
         self.mode = mode
         self.side = side
-        self.tables = dict
         self.log = []
         self.gamma = GAMMA
         self.epsilon = EPSILON
@@ -45,39 +69,35 @@ class Agent:
         elif self.side == WHITE:
             self.turn = 1
 
-    def action(self, state, actlist):  ##testとtrainをまとめたい　方策と記録のとこだけ変える
+    def action(self, state, actlist):
+        statesetlist = None
+        stn = statetonum(state)
         if len(actlist) == 1:  # 選択肢が一つしかないとき
             act = actlist[0]
         elif self.mode == 1 and self.epsilon <= random():
             act = choice(actlist)
         else:
-            key1, key2, key3 = str(self.turn), str(np.sum(state)), str(len(actlist))
-            # テーブルにターン数・行動候補数の記録がある
-            if key1 in self.tables and key2 in self.tables[key1] and key3 in self.tables[key1][key2]:
-                statesetlist = self.tables[key1][key2][key3]
-                # テーブルにおいて、現在の盤面と一致する盤面が存在する場合そのindexを求める
-                indexl = [i for i, x in enumerate([i[0] for i in statesetlist]) if np.all(x == state)]
-                # 現在の盤面と一致する盤面が存在するとき
-                if len(indexl) == 1:
-                    if self.mode == 2:
-                        act = self.softmaxchoice(dict=statesetlist[indexl[0]][1], actlist=actlist)
-                    else:
-                        act = self.maxreword(dict=statesetlist[indexl[0]][1], actlist=actlist)
+            statesetlist = qtableread(stn)
+            if statesetlist is not None:
+                if self.mode == 2:
+                    act = self.softmaxchoice(dict=statesetlist, actlist=actlist)
                 else:
-                    act = choice(actlist)
+                    act = self.maxreword(dict=statesetlist)
             else:
                 act = choice(actlist)
-        if self.mode == 1:
-            self.log.append([self.turn, actlist, act, state])
+        if self.mode == 1 and len(act) != 0:
+            self.log.append([self.turn, actlist, act, stn, statesetlist])
         self.turn += 2
         return act
 
-    def maxreword(self, dict, actlist):
-        set = [[a, dict[str(a)][1]] for a in actlist]
-        act = choice([i[0] for i in set if i[1] == max([i[1] for i in set])])
-        return act
+    def maxreword(self, dict):
+        m=list(dict.keys())[0]
+        for k in dict.keys():
+            if dict[k][1] > dict[m][1]:
+                m=k
+        return [int(m[1]), int(m[-2])]
 
-    def softmaxchoice(self, dict, actlist):
+    def softmaxchoice(self, dict, actlist):#あとで
         vlist = [dict[str(a)][1] for a in actlist]
         q = [exp(a / self.temperature) for a in vlist]
         plist = [qa / sum(q) for qa in q]
@@ -85,47 +105,25 @@ class Agent:
         return act
 
     def save(self, reword):  # dict[ターン数][石値合計][選択肢の数]=[[state,{行動:[試行回数,行動価値] ...}],...]
-        # step[0]:ターン数、step[1]:選択肢の配列、step[2]:選択した行動、step[3]:盤面(ndarray)
+        # step[0]:ターン数、step[1]:選択肢の配列、step[2]:選択した行動、step[3]:盤面num step[4]:dict
         for t, step in enumerate(self.log):
-            # 割引現在価値
             r = reword * self.gamma ** (len(self.log) - (t + 1))
-            key1, key2, key3, key4 = str(step[0]), str(np.sum(step[3])), str(len(step[1])), str(step[2])
-            state = step[3]
-            if not key1 in self.tables:
-                self.tables[key1] = {}
-            if not key2 in self.tables[key1]:
-                self.tables[key1][key2] = {}
-            # 一致する行動候補数の記録がない
-            if not key3 in self.tables[key1][key2]:
-                self.tables[key1][key2][key3] = []
-            # 絞り込んだ盤面の候補の中から一致する盤面のインデックスを返す
-            statesetlist = self.tables[key1][key2][key3]
-            index = [i for i, x in enumerate([i[0] for i in statesetlist]) if np.all(x == state)]
-            if len(index) == 1:  # 一致する盤面が見つかった時
-                dict = self.tables[key1][key2][key3][index[0]][1]
-                if dict[key4][0] != 0:
-                    dict[key4] += [1, (r - dict[key4][1]) / dict[key4][0]]
-                else:
-                    dict[key4] += [1, r]
-            else:  # 盤面が一致しなかったとき
-                # 盤面の記録
-                dict = {}
-                # その盤面で取れる行動の候補を記録　初期化
+            if step[4] is not None:
+                q = step[4][str(step[2])]
+                q += [1, (r - q[1]) / (q[0]+1)]
+                qtablesave(step[3], step[4])
+            else:
+                ql = {}
                 for a in step[1]:
-                    dict[str(a)] = np.array([0, 0], dtype=np.float32)  # keyは"x,y" ここでnp配列で初期化している
-                dict[key4] += [1, r]  # 取った行動の記録
-                self.tables[key1][key2][key3].append([state, dict])
-        self.tables['count'] += 1
+                    ql[str(a)] = np.array([0, 0], dtype=np.float32)
+                ql[str(step[2])] += [1, r]
+                qtablesave(step[3], ql)
 
 
-def train(episode, tables):
-    dictw = tables.white
-    dictb = tables.black
-    agentw = Agent(side=WHITE, dict=dictw, mode=1)
-    agentb = Agent(side=BLACK, dict=dictb, mode=1)
+def train(episode):
+    agentw = Agent(side=WHITE, mode=1)
+    agentb = Agent(side=BLACK, mode=1)
     env = environment.Environment(SIZE)
-    del dictw,dictb
-    gc.collect()
     for count in range(episode):
         env.reset()
         while env.getwinner().size == 0:
@@ -146,23 +144,16 @@ def train(episode, tables):
             agentb.save(DRAWREWORD)
         agentw.reset()
         agentb.reset()
-    lognpz = np.load('log.npz')
-    np.savez('log.npz', x=lognpz['x'], y=lognpz['y'], ave=lognpz['ave'],count=lognpz['count']+episode)
 
 
-
-def test(whiteside, blackside, set, tables):
-    dictw = tables.white
-    dictb = tables.black
+def test(whiteside, blackside, set):
     wwin = 0
     bwin = 0
     draw = 0
     n = 0
     env = environment.Environment(SIZE)
-    agentw = Agent(side=WHITE, dict=dictw)
-    agentb = Agent(side=BLACK, dict=dictb)
-    del dictw,dictb
-    gc.collect()
+    agentw = Agent(side=WHITE)
+    agentb = Agent(side=BLACK)
     for count in range(set):
         env.reset()
         while env.getwinner().size == 0:
@@ -191,46 +182,33 @@ def test(whiteside, blackside, set, tables):
     print("Bwin:" + str(bwin) + "回")
     print("draw:" + str(draw) + "回")
     print("総試合数:" + str(n) + "回")
-    lognpz = np.load('log.npz')
-    logx = lognpz['x']
-    logy = lognpz['y']
-    logave = lognpz['ave']
-    logc= lognpz['count']
-    logy = np.append(logy, bwin / n)
-    logx = np.append(logx, logc)
-    logave = np.append(logave, np.mean(logy))
-    np.savez('log.npz', x=logx, y=logy, ave=logave,count=logc)
     return [wwin, bwin, draw, n]
 
 
-def resetlog():
-    np.savez('log.npz', x=np.array([]), y=np.array([]), ave=np.array([]),count=0)
-
-
-def t(tables):
-    testset = 10
-    test(whiteside=False, blackside=True, set=testset, tables=tables)
+def t():
+    logs=log.LOG(SIZE)
+    testset = 1000
+    trainset=10000
+    _, bwin, _, n=test(whiteside=False, blackside=True, set=testset)
+    logs.save(bwin/n,0)
     for i in range(10):
-        train(10, tables=tables)
-        test(whiteside=False, blackside=True, set=testset, tables=tables)
-    lognpz = np.load('log.npz')
-    logx = lognpz['x']
-    logy = lognpz['ave']
-    plt.plot(logx, logy)
-    plt.show()
-
-
+        s=time.perf_counter()
+        train(trainset)
+        _, bwin, _, n=test(whiteside=False, blackside=True, set=testset)
+        e = time.perf_counter()
+        print(e-s)
+        logs.save(bwin/n,trainset)
+    logs.show()
 if __name__ == "__main__":
-    #tracemalloc.start(15)
-    tables = qtable.Qtable(reset=True)
-    resetlog()
-    t(tables)
-    tables.save()
-    #snapshot = tracemalloc.take_snapshot()
-    #top_stats = snapshot.statistics('traceback')
-
-    #print("[ Top 10 ]")
-    #for stat in top_stats[:10]:
+    if not os.path.isdir(PATH):
+        os.mkdir(PATH)
+    # tracemalloc.start(15)
+    # resetlog()
+    t()
+    # snapshot = tracemalloc.take_snapshot()
+    # top_stats = snapshot.statistics('traceback')
+    # print("[ Top 10 ]")
+    # for stat in top_stats[:10]:
     #    print(stat)
     #    for line in stat.traceback.format():
     #        print(line)
