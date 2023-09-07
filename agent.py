@@ -1,5 +1,4 @@
 import time
-
 import numpy as np
 import environment
 from random import choice
@@ -9,34 +8,43 @@ from numpy import exp
 import pickle
 import os
 import log
+
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
-SIZE = 4
+SIZE = 8
 GAMMA = 0.7  # 割引率
 EPSILON = 0.9
-TEMPERATURE = 1  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
+TEMPERATURE = 0.01  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
 EPTEMPERATURE = 1
 
 WINREWORD = 1
 LOSEREWORD = -1 * WINREWORD
-DRAWREWORD = 0.5
+DRAWREWORD = 0.01
 
-PATH = "table"+str(SIZE)+"/"
+PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(SIZE) + "/"
 
 
-def qtableread(filename: str):
-    if os.path.isfile(PATH + "a" + filename + ".pkl"):
-        with open(PATH + "a" + filename + ".pkl", 'rb') as f:
+def qtableread(filename: str, side: int):
+    if side == 1:
+        a = "b"
+    else:
+        a = "w"
+    if os.path.isfile(PATH + a + filename + ".pkl"):
+        with open(PATH + a + filename + ".pkl", 'rb') as f:
             data = pickle.load(f)
         return data
     else:
         return
 
 
-def qtablesave(filename: str, obj: dict):
-    with open(PATH + "a" + filename + ".pkl", 'wb') as f:
+def qtablesave(filename: str, obj: dict, side: int):
+    if side == 1:
+        a = "b"
+    else:
+        a = "w"
+    with open(PATH + a + filename + ".pkl", 'wb') as f:
         pickle.dump(obj, f)
 
 
@@ -77,32 +85,34 @@ class Agent:
         elif self.mode == 1 and self.epsilon <= random():
             act = choice(actlist)
         else:
-            statesetlist = qtableread(stn)
+            statesetlist = qtableread(stn, self.side)
             if statesetlist is not None:
                 if self.mode == 2:
-                    act = self.softmaxchoice(dict=statesetlist, actlist=actlist)
+                    act = self.softmaxchoice(dict=statesetlist)
                 else:
+
                     act = self.maxreword(dict=statesetlist)
             else:
                 act = choice(actlist)
-        if self.mode == 1 and len(act) != 0:
+        if self.mode == 1 and len(act) != 0 and len(actlist) > 1:
             self.log.append([self.turn, actlist, act, stn, statesetlist])
         self.turn += 2
         return act
 
     def maxreword(self, dict):
-        m=list(dict.keys())[0]
+        m = list(dict.keys())[0]
         for k in dict.keys():
             if dict[k][1] > dict[m][1]:
-                m=k
+                m = k
         return [int(m[1]), int(m[-2])]
 
-    def softmaxchoice(self, dict, actlist):#あとで
-        vlist = [dict[str(a)][1] for a in actlist]
+    def softmaxchoice(self, dict):
+        klist = list(dict.keys())
+        vlist = [dict[k][1] for k in klist]
         q = [exp(a / self.temperature) for a in vlist]
         plist = [qa / sum(q) for qa in q]
-        act = actlist[npchoice(list(range(len(actlist))), p=plist)]
-        return act
+        m = klist[npchoice(list(range(len(klist))), p=plist)]
+        return [int(m[1]), int(m[-2])]
 
     def save(self, reword):  # dict[ターン数][石値合計][選択肢の数]=[[state,{行動:[試行回数,行動価値] ...}],...]
         # step[0]:ターン数、step[1]:選択肢の配列、step[2]:選択した行動、step[3]:盤面num step[4]:dict
@@ -110,14 +120,14 @@ class Agent:
             r = reword * self.gamma ** (len(self.log) - (t + 1))
             if step[4] is not None:
                 q = step[4][str(step[2])]
-                q += [1, (r - q[1]) / (q[0]+1)]
-                qtablesave(step[3], step[4])
+                q += [1, (r - q[1]) / (q[0] + 1)]
+                qtablesave(step[3], step[4], self.side)
             else:
                 ql = {}
                 for a in step[1]:
                     ql[str(a)] = np.array([0, 0], dtype=np.float32)
                 ql[str(step[2])] += [1, r]
-                qtablesave(step[3], ql)
+                qtablesave(step[3], ql, self.side)
 
 
 def train(episode):
@@ -185,31 +195,65 @@ def test(whiteside, blackside, set):
     return [wwin, bwin, draw, n]
 
 
+def test2(whiteside, blackside, set):
+    wwin = 0
+    bwin = 0
+    draw = 0
+    n = 0
+    env = environment.Environment(SIZE)
+    agentw = Agent(side=WHITE, mode=2)
+    agentb = Agent(side=BLACK, mode=2)
+    for count in range(set):
+        env.reset()
+        while env.getwinner().size == 0:
+            state, actlist = env.getstate(), env.actlist
+            if env.side == WHITE:
+                if whiteside:
+                    env.action(agentw.action(state=state, actlist=actlist))
+                else:
+                    env.action(choice(actlist))
+            else:
+                if blackside:
+                    env.action(agentb.action(state=state, actlist=actlist))
+                else:
+                    env.action(choice(actlist))
+        winner = env.getwinner()
+        if winner == WHITE:
+            wwin += 1
+        elif winner == BLACK:
+            bwin += 1
+        else:
+            draw += 1
+        n += 1
+        agentw.reset()
+        agentb.reset()
+    print("Wwin:" + str(wwin) + "回")
+    print("Bwin:" + str(bwin) + "回")
+    print("draw:" + str(draw) + "回")
+    print("総試合数:" + str(n) + "回")
+    return [wwin, bwin, draw, n]
+
+
 def t():
-    logs=log.LOG(SIZE)
+    logs = log.LOG(SIZE)
     testset = 1000
-    trainset=10000
-    _, bwin, _, n=test(whiteside=False, blackside=True, set=testset)
-    logs.save(bwin/n,0)
+    trainset = 1000
+    _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
+    logs.save(bwin / n, 0)
     for i in range(10):
-        s=time.perf_counter()
+        s = time.perf_counter()
+        print("train...")
         train(trainset)
-        _, bwin, _, n=test(whiteside=False, blackside=True, set=testset)
+        print("test...")
+        _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
         e = time.perf_counter()
-        print(e-s)
-        logs.save(bwin/n,trainset)
+        print(e - s)
+        logs.save(bwin / n, trainset)
     logs.show()
+
+
 if __name__ == "__main__":
     if not os.path.isdir(PATH):
         os.mkdir(PATH)
-    # tracemalloc.start(15)
-    # resetlog()
     t()
-    # snapshot = tracemalloc.take_snapshot()
-    # top_stats = snapshot.statistics('traceback')
-    # print("[ Top 10 ]")
-    # for stat in top_stats[:10]:
-    #    print(stat)
-    #    for line in stat.traceback.format():
-    #        print(line)
-    #    print("=====")
+    #test2(whiteside=False, blackside=True, set=1000)

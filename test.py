@@ -4,8 +4,9 @@ import os
 import numpy as np
 import environment
 import random
+import os
 
-PATH = "test/"
+PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(4) + "/"
 
 
 def qtableread(filename: str):
@@ -22,20 +23,5 @@ def qtablesave(filename: str, obj: dict):
         pickle.dump(obj, f)
 
 
-nn = 5
 
-n = str(int(random.random() * (10 ** nn)))
-qtablesave(n, {"[1,2]": [1, 2]})
-s = time.perf_counter()
-a = qtableread(n)
-e = time.perf_counter()
-print(a)
-print(e - s)
-for i in range(10 ** nn):
-    qtablesave(str(i), {"[1,2]": [1, 2]})
-n = str(int(random.random() * (10 ** nn)))
-s = time.perf_counter()
-a = qtableread(n)
-e = time.perf_counter()
-print(a)
-print(e - s)
+print(qtableread("0222102210221021"))
