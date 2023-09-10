@@ -13,7 +13,7 @@ BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
-SIZE = 8
+SIZE = 4
 GAMMA = 0.7  # 割引率
 EPSILON = 0.9
 TEMPERATURE = 0.01  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
@@ -25,14 +25,17 @@ DRAWREWORD = 0.01
 
 PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(SIZE) + "/"
 
+RAYER = SIZE * SIZE - 12
+
 
 def qtableread(filename: str, side: int):
     if side == 1:
-        a = "b"
+        a = "b/"
     else:
-        a = "w"
-    if os.path.isfile(PATH + a + filename + ".pkl"):
-        with open(PATH + a + filename + ".pkl", 'rb') as f:
+        a = "w/"
+    fn = "".join([list(filename)[i] + "/" for i in range(RAYER)])
+    if os.path.isfile(PATH + a + fn + filename + ".pkl"):
+        with open(PATH + a + fn + filename + ".pkl", 'rb') as f:
             data = pickle.load(f)
         return data
     else:
@@ -41,10 +44,11 @@ def qtableread(filename: str, side: int):
 
 def qtablesave(filename: str, obj: dict, side: int):
     if side == 1:
-        a = "b"
+        a = "b/"
     else:
-        a = "w"
-    with open(PATH + a + filename + ".pkl", 'wb') as f:
+        a = "w/"
+    fn = "".join([list(filename)[i] + "/" for i in range(RAYER)])
+    with open(PATH + a + fn + filename + ".pkl", 'wb') as f:
         pickle.dump(obj, f)
 
 
@@ -65,6 +69,7 @@ class Agent:
         self.gamma = GAMMA
         self.epsilon = EPSILON
         self.temperature = TEMPERATURE
+        self.re = ""
         if side == BLACK:
             self.turn = 0
         elif side == WHITE:
@@ -84,6 +89,7 @@ class Agent:
             act = actlist[0]
         elif self.mode == 1 and self.epsilon <= random():
             act = choice(actlist)
+            statesetlist = qtableread(stn, self.side)
         else:
             statesetlist = qtableread(stn, self.side)
             if statesetlist is not None:
@@ -256,4 +262,4 @@ if __name__ == "__main__":
     if not os.path.isdir(PATH):
         os.mkdir(PATH)
     t()
-    #test2(whiteside=False, blackside=True, set=1000)
+    # test(whiteside=False, blackside=True, set=1000)
