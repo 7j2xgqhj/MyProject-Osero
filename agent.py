@@ -13,7 +13,7 @@ BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
-SIZE = 4
+SIZE = 8
 GAMMA = 0.7  # 割引率
 EPSILON = 0.9
 TEMPERATURE = 0.01  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
@@ -25,7 +25,7 @@ DRAWREWORD = 0.01
 
 PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(SIZE) + "/"
 
-RAYER = SIZE * SIZE - 12
+RAYER = int((SIZE * SIZE - 1) / 12)
 
 
 def qtableread(filename: str, side: int):
@@ -33,7 +33,7 @@ def qtableread(filename: str, side: int):
         a = "b/"
     else:
         a = "w/"
-    fn = "".join([list(filename)[i] + "/" for i in range(RAYER)])
+    fn = "".join([filename[12 * i:12 * (i + 1)] + "/" for i in range(RAYER)])
     if os.path.isfile(PATH + a + fn + filename + ".pkl"):
         with open(PATH + a + fn + filename + ".pkl", 'rb') as f:
             data = pickle.load(f)
@@ -47,8 +47,13 @@ def qtablesave(filename: str, obj: dict, side: int):
         a = "b/"
     else:
         a = "w/"
-    fn = "".join([list(filename)[i] + "/" for i in range(RAYER)])
-    with open(PATH + a + fn + filename + ".pkl", 'wb') as f:
+    fl = [filename[12 * i:12 * (i + 1)] + "/" for i in range(RAYER)]
+    s = ""
+    for l in fl:
+        s += l
+        if not os.path.isdir(PATH + a + s):
+            os.mkdir(PATH + a + s)
+    with open(PATH + a + s + filename + ".pkl", 'wb') as f:
         pickle.dump(obj, f)
 
 
@@ -243,7 +248,7 @@ def test2(whiteside, blackside, set):
 def t():
     logs = log.LOG(SIZE)
     testset = 1000
-    trainset = 1000
+    trainset = 10000
     _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     logs.save(bwin / n, 0)
     for i in range(10):

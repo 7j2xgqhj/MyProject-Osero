@@ -6,8 +6,8 @@ import environment
 import random
 import os
 
-NUM = 8
-PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(NUM) + "/"
+SIZE = 4
+PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(SIZE) + "/"
 
 
 def qtableread(filename: str):
@@ -24,14 +24,6 @@ def qtablesave(filename: str, obj: dict):
         pickle.dump(obj, f)
 
 
-def res(path, count):
-    if count != NUM * NUM - 12:
-        c = count + 1
-        for i in [0, 1, 2]:
-            fp = path + str(i) + "/"
-            os.mkdir(fp)
-            res(fp, c)
-
-
-res(PATH + "b/", 0)
-res(PATH + "w/", 0)
+st = "1234567891234567"
+a = [st[12 * i:12 * (i + 1)] + "/" for i in range(int((SIZE*SIZE-1)/12))]
+print(a)
