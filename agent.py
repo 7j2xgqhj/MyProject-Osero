@@ -1,3 +1,4 @@
+import threading
 import time
 import numpy as np
 import environment
@@ -8,13 +9,15 @@ from numpy import exp
 import pickle
 import os
 import log
+import tkinter as tk
+import envgui
 
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
 SIZE = 8
-GAMMA = 0.7  # 割引率
+GAMMA = 0.95  # 割引率
 EPSILON = 0.9
 TEMPERATURE = 0.01  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
 EPTEMPERATURE = 1
@@ -34,12 +37,15 @@ def qtableread(filename: str, side: int):
     else:
         a = "w/"
     fn = "".join([filename[12 * i:12 * (i + 1)] + "/" for i in range(RAYER)])
-    if os.path.isfile(PATH + a + fn + filename + ".pkl"):
-        with open(PATH + a + fn + filename + ".pkl", 'rb') as f:
-            data = pickle.load(f)
-        return data
-    else:
-        return
+    try:
+        if os.path.isfile(PATH + a + fn + filename + ".pkl"):
+            with open(PATH + a + fn + filename + ".pkl", 'rb') as f:
+                data = pickle.load(f)
+            return data
+        else:
+            return
+    except:
+        print(filename)
 
 
 def qtablesave(filename: str, obj: dict, side: int):
@@ -90,6 +96,7 @@ class Agent:
     def action(self, state, actlist):
         statesetlist = None
         stn = statetonum(state)
+        self.epsilon -= 0.02
         if len(actlist) == 1:  # 選択肢が一つしかないとき
             act = actlist[0]
         elif self.mode == 1 and self.epsilon <= random():
@@ -245,13 +252,59 @@ def test2(whiteside, blackside, set):
     return [wwin, bwin, draw, n]
 
 
+def vsplayer(whiteside=False, blackside=False):
+    os.mkdir("play")
+    env = environment.Environment(SIZE)
+    def gui():
+        root = tk.Tk()
+        envgui.EnvGUI(env=env, master=root)
+
+    thread1 = threading.Thread(target=gui)
+    thread1.start()
+    agentw = Agent(side=WHITE, mode=2)
+    agentb = Agent(side=BLACK, mode=2)
+    while env.getwinner().size == 0:
+        state, actlist = env.getstate(), env.actlist
+        if env.side == WHITE:
+            if not whiteside:
+                env.action(agentw.action(state=state, actlist=actlist))
+            else:
+                turn=env.getturn()
+                while not os.path.isfile(str(turn)+".pkl"):
+                    pass
+                with open(str(turn)+".pkl", 'rb') as f:
+                    data = pickle.load(f)
+                env.action(data)
+                os.remove(str(turn) + ".pkl")
+        else:
+            if not blackside:
+                env.action(agentb.action(state=state, actlist=actlist))
+            else:
+                turn = env.getturn()
+                while not os.path.isfile(str(turn) + ".pkl"):
+                    pass
+                with open(str(turn) + ".pkl", 'rb') as f:
+                    data = pickle.load(f)
+                env.action(data)
+                os.remove(str(turn) + ".pkl")
+    winner=env.getwinner()
+    if winner == WHITE:
+        print("白の勝ち")
+    elif winner == BLACK:
+        print("黒の勝ち")
+    else:
+        print("引き分け")
+    os.remove("play")
+    thread1.join()
+
+
 def t():
     logs = log.LOG(SIZE)
     testset = 1000
-    trainset = 10000
+    trainset = 1000
     _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     logs.save(bwin / n, 0)
-    for i in range(10):
+    for i in range(2):
         s = time.perf_counter()
         print("train...")
         train(trainset)
@@ -266,5 +319,6 @@ def t():
 if __name__ == "__main__":
     if not os.path.isdir(PATH):
         os.mkdir(PATH)
-    t()
+    # t()
+    vsplayer(whiteside=True)
     # test(whiteside=False, blackside=True, set=1000)

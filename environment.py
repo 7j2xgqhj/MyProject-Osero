@@ -115,36 +115,3 @@ class Environment:
             return arrayclone
 
 
-if __name__ == "__main__":
-    env = Environment(6)
-    gui = True
-    if gui:
-        def gui():
-            root = tk.Tk()
-            envgui.EnvGUI(env=env, master=root)
-
-
-        thread1 = threading.Thread(target=gui)
-        thread1.start()
-    while env.getwinner().size == 0:
-        t = env.getside()
-        if t == WHITE:
-            print("turn of WHITE")
-        else:
-            print("turn of BLACK")
-        actlist = env.actlist
-        act = False
-        while not act:
-            time.sleep(2)
-            print(actlist)
-            print("which one? input number")
-            if env.side == WHITE:
-                act = env.action(random.choice(actlist))
-            else:
-                act = env.action(random.choice(actlist))
-    winner = env.getwinner()
-    print(winner)
-    if winner == WHITE:
-        print("winner is WHITE")
-    elif winner == BLACK:
-        print("winner is  BLACK")
