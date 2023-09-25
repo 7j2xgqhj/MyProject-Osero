@@ -1,12 +1,8 @@
-import tkinter as tk
+
 import numpy as np
-import envgui
-import threading
-import random
-import time
 from numpy import add
 from numpy import copy
-import operator
+from copy import deepcopy
 
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
@@ -21,6 +17,7 @@ class Environment:
     # 初期化
     def __init__(self, size=8):
         self.size = int(size)  # 8 or 6 or 4
+        self.stateinit()
         self.reset()
 
     # stateの初期化
@@ -32,24 +29,10 @@ class Environment:
 
     def reset(self):
         self.stateinit()
-        self.side, self.winner, self.isPassed, self.turn, self.actlist = BLACK, [], False, 0, []
+        self.side, self.winner, self.isPassed, self.turn, self.actlist, self.prestate, self.preact \
+            = BLACK, None, False, 0, [], [], []
         self.makeactlist()
 
-    # stateの出力
-    def getstate(self):
-        return copy(self.state)
-
-    # 勝者の出力
-    def getwinner(self):
-        return copy(self.winner)
-
-    def getside(self):
-        return self.side
-
-    def getturn(self):
-        return self.turn
-
-    # 手番の交代
     def turn_change(self):
         self.side *= -1
 
@@ -58,12 +41,14 @@ class Environment:
         actionlist, statecopy = [], copy(self.state)
         [actionlist.append([i, j]) for i in range(self.size) for j in range(self.size) if
          statecopy[i][j] == BLANK and self.reversestones([i, j]).size != 0]
-        if len(actionlist) == 0: actionlist.append([])
+        if len(actionlist) == 0:
+            actionlist.append([])
         self.actlist = actionlist
 
     # 行動をする。成功したらTrue、失敗ならFalseを返す
     def action(self, act):
         if act in self.actlist:
+            self.preact, self.prestate = act, copy(self.state)
             if len(act) == 0:
                 if self.isPassed:
                     self.decidewinner()
@@ -113,5 +98,3 @@ class Environment:
         else:
             arrayclone[index[0]][index[1]] = self.side
             return arrayclone
-
-

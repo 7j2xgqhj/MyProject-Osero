@@ -16,7 +16,7 @@ BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
-SIZE = 8
+SIZE = 4
 GAMMA = 0.95  # 割引率
 EPSILON = 0.9
 TEMPERATURE = 0.01  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
@@ -71,16 +71,24 @@ def statetonum(state):
     return statestr
 
 
+def maxreword(dict):
+    m = list(dict.keys())[0]
+    for k in dict.keys():
+        if dict[k][1] > dict[m][1]:
+            m = k
+    return [int(m[1]), int(m[-2])]
+
+
 class Agent:
     # 盤面の情報は、先手・後手(定数)、何手目(計算が簡単)、石値合計(np.sum(state))。打てる手数(ついでで使える)で分類して絞り込めるようにすることで計算時間を削減したい
-    def __init__(self, side, mode=0):
+    def __init__(self, side, mode=0, env=None):
         self.mode = mode
         self.side = side
         self.log = []
         self.gamma = GAMMA
         self.epsilon = EPSILON
         self.temperature = TEMPERATURE
-        self.re = ""
+        self.environment = env
         if side == BLACK:
             self.turn = 0
         elif side == WHITE:
@@ -93,36 +101,31 @@ class Agent:
         elif self.side == WHITE:
             self.turn = 1
 
-    def action(self, state, actlist):
+    def action(self):
         statesetlist = None
-        stn = statetonum(state)
+        stn = statetonum(self.environment.state)
         self.epsilon -= 0.02
-        if len(actlist) == 1:  # 選択肢が一つしかないとき
-            act = actlist[0]
+        if len(self.environment.actlist) == 1:  # 選択肢が一つしかないとき
+            act = self.environment.actlist[0]
         elif self.mode == 1 and self.epsilon <= random():
-            act = choice(actlist)
+            act = choice(self.environment.actlist)
             statesetlist = qtableread(stn, self.side)
         else:
             statesetlist = qtableread(stn, self.side)
             if statesetlist is not None:
                 if self.mode == 2:
+                    value = self.valuecheck(self.environment.preact, self.environment.prestate)
+                    print(value)
                     act = self.softmaxchoice(dict=statesetlist)
                 else:
 
-                    act = self.maxreword(dict=statesetlist)
+                    act = maxreword(dict=statesetlist)
             else:
-                act = choice(actlist)
-        if self.mode == 1 and len(act) != 0 and len(actlist) > 1:
-            self.log.append([self.turn, actlist, act, stn, statesetlist])
+                act = choice(self.environment.actlist)
+        if self.mode == 1 and len(act) != 0 and len(self.environment.actlist) > 1:
+            self.log.append([self.turn, self.environment.actlist, act, stn, statesetlist])
         self.turn += 2
         return act
-
-    def maxreword(self, dict):
-        m = list(dict.keys())[0]
-        for k in dict.keys():
-            if dict[k][1] > dict[m][1]:
-                m = k
-        return [int(m[1]), int(m[-2])]
 
     def softmaxchoice(self, dict):
         klist = list(dict.keys())
@@ -131,6 +134,16 @@ class Agent:
         plist = [qa / sum(q) for qa in q]
         m = klist[npchoice(list(range(len(klist))), p=plist)]
         return [int(m[1]), int(m[-2])]
+
+    def valuecheck(self, preact, prestate):
+        stn = statetonum(prestate)
+        statesetlist = qtableread(stn, self.side*-1)
+        if statesetlist is not None:
+            klist = list(statesetlist.keys())
+            vsum = sum([statesetlist[k][1] for k in klist])
+            return statesetlist[str(preact)][1] / vsum
+        else:
+            return 0
 
     def save(self, reword):  # dict[ターン数][石値合計][選択肢の数]=[[state,{行動:[試行回数,行動価値] ...}],...]
         # step[0]:ターン数、step[1]:選択肢の配列、step[2]:選択した行動、step[3]:盤面num step[4]:dict
@@ -149,18 +162,17 @@ class Agent:
 
 
 def train(episode):
-    agentw = Agent(side=WHITE, mode=1)
-    agentb = Agent(side=BLACK, mode=1)
     env = environment.Environment(SIZE)
+    agentw = Agent(side=WHITE, mode=1, env=env)
+    agentb = Agent(side=BLACK, mode=1, env=env)
     for count in range(episode):
         env.reset()
-        while env.getwinner().size == 0:
-            state, actlist = env.getstate(), env.actlist
+        while env.winner is None:
             if env.side == WHITE:
-                env.action(agentw.action(state=state, actlist=actlist))
+                env.action(agentw.action())
             else:
-                env.action(agentb.action(state=state, actlist=actlist))
-        winner = env.getwinner()
+                env.action(agentb.action())
+        winner = env.winner
         if winner == WHITE:
             agentw.save(WINREWORD)
             agentb.save(LOSEREWORD)
@@ -180,23 +192,22 @@ def test(whiteside, blackside, set):
     draw = 0
     n = 0
     env = environment.Environment(SIZE)
-    agentw = Agent(side=WHITE)
-    agentb = Agent(side=BLACK)
+    agentw = Agent(side=WHITE, env=env)
+    agentb = Agent(side=BLACK, env=env)
     for count in range(set):
         env.reset()
-        while env.getwinner().size == 0:
-            state, actlist = env.getstate(), env.actlist
+        while env.winner is None:
             if env.side == WHITE:
                 if whiteside:
-                    env.action(agentw.action(state=state, actlist=actlist))
+                    env.action(agentw.action())
                 else:
-                    env.action(choice(actlist))
+                    env.action(choice(env.actlist))
             else:
                 if blackside:
-                    env.action(agentb.action(state=state, actlist=actlist))
+                    env.action(agentb.action())
                 else:
-                    env.action(choice(actlist))
-        winner = env.getwinner()
+                    env.action(choice(env.actlist))
+        winner = env.winner
         if winner == WHITE:
             wwin += 1
         elif winner == BLACK:
@@ -219,23 +230,22 @@ def test2(whiteside, blackside, set):
     draw = 0
     n = 0
     env = environment.Environment(SIZE)
-    agentw = Agent(side=WHITE, mode=2)
-    agentb = Agent(side=BLACK, mode=2)
+    agentw = Agent(side=WHITE, mode=2, env=env)
+    agentb = Agent(side=BLACK, mode=2, env=env)
     for count in range(set):
         env.reset()
-        while env.getwinner().size == 0:
-            state, actlist = env.getstate(), env.actlist
+        while env.winner is None:
             if env.side == WHITE:
                 if whiteside:
-                    env.action(agentw.action(state=state, actlist=actlist))
+                    env.action(agentw.action())
                 else:
-                    env.action(choice(actlist))
+                    env.action(choice(env.actlist))
             else:
                 if blackside:
-                    env.action(agentb.action(state=state, actlist=actlist))
+                    env.action(agentb.action())
                 else:
-                    env.action(choice(actlist))
-        winner = env.getwinner()
+                    env.action(choice(env.actlist))
+        winner = env.winner
         if winner == WHITE:
             wwin += 1
         elif winner == BLACK:
@@ -255,56 +265,55 @@ def test2(whiteside, blackside, set):
 def vsplayer(whiteside=False, blackside=False):
     os.mkdir("play")
     env = environment.Environment(SIZE)
+
     def gui():
         root = tk.Tk()
         envgui.EnvGUI(env=env, master=root)
 
     thread1 = threading.Thread(target=gui)
     thread1.start()
-    agentw = Agent(side=WHITE, mode=2)
-    agentb = Agent(side=BLACK, mode=2)
-    while env.getwinner().size == 0:
-        state, actlist = env.getstate(), env.actlist
+    agentw = Agent(side=WHITE, mode=2, env=env)
+    agentb = Agent(side=BLACK, mode=2, env=env)
+    while env.winner is None:
         if env.side == WHITE:
             if not whiteside:
-                env.action(agentw.action(state=state, actlist=actlist))
+                env.action(agentw.action())
             else:
-                turn=env.getturn()
-                while not os.path.isfile(str(turn)+".pkl"):
-                    pass
-                with open(str(turn)+".pkl", 'rb') as f:
-                    data = pickle.load(f)
-                env.action(data)
-                os.remove(str(turn) + ".pkl")
-        else:
-            if not blackside:
-                env.action(agentb.action(state=state, actlist=actlist))
-            else:
-                turn = env.getturn()
+                turn = env.turn
                 while not os.path.isfile(str(turn) + ".pkl"):
                     pass
                 with open(str(turn) + ".pkl", 'rb') as f:
                     data = pickle.load(f)
                 env.action(data)
                 os.remove(str(turn) + ".pkl")
-    winner=env.getwinner()
+        else:
+            if not blackside:
+                env.action(agentb.action())
+            else:
+                turn = env.turn
+                while not os.path.isfile(str(turn) + ".pkl"):
+                    pass
+                with open(str(turn) + ".pkl", 'rb') as f:
+                    data = pickle.load(f)
+                env.action(data)
+                os.remove(str(turn) + ".pkl")
+    winner = env.winner
     if winner == WHITE:
         print("白の勝ち")
     elif winner == BLACK:
         print("黒の勝ち")
     else:
         print("引き分け")
-    os.remove("play")
     thread1.join()
 
 
 def t():
     logs = log.LOG(SIZE)
-    testset = 1000
+    testset = 100
     trainset = 1000
     _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     logs.save(bwin / n, 0)
-    for i in range(2):
+    for i in range(10):
         s = time.perf_counter()
         print("train...")
         train(trainset)
@@ -317,8 +326,6 @@ def t():
 
 
 if __name__ == "__main__":
-    if not os.path.isdir(PATH):
-        os.mkdir(PATH)
-    # t()
-    vsplayer(whiteside=True)
-    # test(whiteside=False, blackside=True, set=1000)
+    #t()
+    #vsplayer(whiteside=True)
+    test2(whiteside=False, blackside=True, set=1)
