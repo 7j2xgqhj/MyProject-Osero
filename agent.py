@@ -11,12 +11,13 @@ import os
 import log
 import tkinter as tk
 import envgui
+import matplotlib.pyplot as plt
 
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
-SIZE = 4
+SIZE = 6
 GAMMA = 0.95  # 割引率
 EPSILON = 0.9
 TEMPERATURE = 0.01  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
@@ -26,8 +27,8 @@ WINREWORD = 1
 LOSEREWORD = -1 * WINREWORD
 DRAWREWORD = 0.01
 
-PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(SIZE) + "/"
-
+# PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(SIZE) + "/"
+PATH = "E:/qtables/" + "table" + str(SIZE) + "/"
 RAYER = int((SIZE * SIZE - 1) / 12)
 
 
@@ -81,14 +82,17 @@ def maxreword(dict):
 
 class Agent:
     # 盤面の情報は、先手・後手(定数)、何手目(計算が簡単)、石値合計(np.sum(state))。打てる手数(ついでで使える)で分類して絞り込めるようにすることで計算時間を削減したい
-    def __init__(self, side, mode=0, env=None):
+    def __init__(self, side, mode=0, env=None, tmp=TEMPERATURE, tmpupdate=False):
         self.mode = mode
         self.side = side
         self.log = []
         self.gamma = GAMMA
         self.epsilon = EPSILON
-        self.temperature = TEMPERATURE
+        self.temperature = tmp
         self.environment = env
+        self.prevalue = 0
+        self.count = 0
+        self.istmpupdate = tmpupdate
         if side == BLACK:
             self.turn = 0
         elif side == WHITE:
@@ -105,6 +109,9 @@ class Agent:
         statesetlist = None
         stn = statetonum(self.environment.state)
         self.epsilon -= 0.02
+        if self.mode == 2 and self.istmpupdate:
+            value = self.valuecheck(self.environment.preact, self.environment.prestate)
+            self.tmpupdate(value)
         if len(self.environment.actlist) == 1:  # 選択肢が一つしかないとき
             act = self.environment.actlist[0]
         elif self.mode == 1 and self.epsilon <= random():
@@ -114,8 +121,6 @@ class Agent:
             statesetlist = qtableread(stn, self.side)
             if statesetlist is not None:
                 if self.mode == 2:
-                    value = self.valuecheck(self.environment.preact, self.environment.prestate)
-                    print(value)
                     act = self.softmaxchoice(dict=statesetlist)
                 else:
 
@@ -137,13 +142,56 @@ class Agent:
 
     def valuecheck(self, preact, prestate):
         stn = statetonum(prestate)
-        statesetlist = qtableread(stn, self.side*-1)
+        statesetlist = qtableread(stn, self.side * -1)
         if statesetlist is not None:
             klist = list(statesetlist.keys())
-            vsum = sum([statesetlist[k][1] for k in klist])
-            return statesetlist[str(preact)][1] / vsum
+            vlist = [statesetlist[k][1] for k in klist]
+            indx = klist.index(str(preact))
+            n = 0.05
+            if self.temperature - n <= 0:
+                q = [exp(a / 0.01) for a in vlist]
+            else:
+                q = [exp(a / (self.temperature - n)) for a in vlist]
+            plist = [qa / sum(q) for qa in q]
+            m = plist[indx]
+            q = [exp(a / (self.temperature + n)) for a in vlist]
+            plist = [qa / sum(q) for qa in q]
+            n = plist[indx]
+            if m > n:
+                return -1
+            else:
+                return 1
         else:
-            return 0
+            return 0.5
+
+    def tmpupdate(self, value):
+        dbg = [value]
+        amp = 0.01
+        if self.turn < 5:
+            amp = 0
+            dbg.append("<5")
+        elif self.turn >= 5:
+            if self.turn < 5 + (SIZE ** 2 - 4) / 8:
+                amp *= 3
+                dbg.append("early")
+        if self.prevalue == value:
+            self.count += 1
+            if self.count > 3:
+                amp *= 2
+                dbg.append("count" + str(self.count) + ":" + str(value))
+        else:
+            self.count = 0
+        self.prevalue = value
+        if value > 0:
+            amp *= 2
+            dbg.append("plus")
+        # print("tmp:" + str(self.temperature))
+        # print("amp:" + str(amp))
+        # print(dbg)
+        if self.temperature + (value * amp) < 0.01:
+            self.temperature = 0.01
+        else:
+            self.temperature += value * amp
 
     def save(self, reword):  # dict[ターン数][石値合計][選択肢の数]=[[state,{行動:[試行回数,行動価値] ...}],...]
         # step[0]:ターン数、step[1]:選択肢の配列、step[2]:選択した行動、step[3]:盤面num step[4]:dict
@@ -193,7 +241,7 @@ def test(whiteside, blackside, set):
     n = 0
     env = environment.Environment(SIZE)
     agentw = Agent(side=WHITE, env=env)
-    agentb = Agent(side=BLACK, env=env)
+    agentb = Agent(side=BLACK,mode=2,env=env,tmp=1)
     for count in range(set):
         env.reset()
         while env.winner is None:
@@ -223,43 +271,62 @@ def test(whiteside, blackside, set):
     print("総試合数:" + str(n) + "回")
     return [wwin, bwin, draw, n]
 
+#温度の推移見る用
+def test2(env=None, agentw=None, agentb=None, istmp=False):
+    x, y1, y2 = [], [], []
+    if env is None:
+        env = environment.Environment(SIZE)
+    if agentw is None:
+        agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.1)
+    if agentb is None:
+        agentb = Agent(side=BLACK, mode=2, env=env, tmpupdate=True)
+    env.reset()
+    while env.winner is None:
+        if env.side == WHITE:
+            env.action(agentw.action())
+        else:
+            env.action(agentb.action())
+        if istmp:
+            x.append(env.turn)
+            y1.append(agentb.temperature)
+            y2.append(agentw.temperature)
+    winner = env.winner
+    agentw.reset()
+    agentb.reset()
+    if istmp:
+        plt.plot(x, y1)
+        plt.plot(x, y2)
+        plt.show()
+    if winner == WHITE:
+        return WHITE
+    elif winner == BLACK:
+        return BLACK
+    else:
+        return BLANK
 
-def test2(whiteside, blackside, set):
-    wwin = 0
-    bwin = 0
-    draw = 0
-    n = 0
+
+def test3():
+    x,y=[],[]
     env = environment.Environment(SIZE)
-    agentw = Agent(side=WHITE, mode=2, env=env)
-    agentb = Agent(side=BLACK, mode=2, env=env)
-    for count in range(set):
-        env.reset()
-        while env.winner is None:
-            if env.side == WHITE:
-                if whiteside:
-                    env.action(agentw.action())
-                else:
+    for tmp in range(1,80):
+        bwin=0
+        agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp*0.01)
+        for count in range(1000):
+            env.reset()
+            while env.winner is None:
+                if env.side == WHITE:
                     env.action(choice(env.actlist))
-            else:
-                if blackside:
+                else:
                     env.action(agentb.action())
-                else:
-                    env.action(choice(env.actlist))
-        winner = env.winner
-        if winner == WHITE:
-            wwin += 1
-        elif winner == BLACK:
-            bwin += 1
-        else:
-            draw += 1
-        n += 1
-        agentw.reset()
-        agentb.reset()
-    print("Wwin:" + str(wwin) + "回")
-    print("Bwin:" + str(bwin) + "回")
-    print("draw:" + str(draw) + "回")
-    print("総試合数:" + str(n) + "回")
-    return [wwin, bwin, draw, n]
+            winner = env.winner
+            if winner == BLACK:
+                bwin += 1
+            agentb.reset()
+        x.append(tmp*0.01)
+        y.append(bwin/100)
+    plt.plot(x,y)
+    plt.show()
+
 
 
 def vsplayer(whiteside=False, blackside=False):
@@ -326,6 +393,8 @@ def t():
 
 
 if __name__ == "__main__":
-    #t()
-    #vsplayer(whiteside=True)
-    test2(whiteside=False, blackside=True, set=1)
+    # t()
+    # vsplayer(whiteside=True)
+    #print(test2(istmp=True))
+    #test3()
+    test(whiteside=False, blackside=True, set=1000)
