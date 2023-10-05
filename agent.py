@@ -80,6 +80,20 @@ def maxreword(dict):
     return [int(m[1]), int(m[-2])]
 
 
+def graph(di, le):
+    klist = list(di.keys())
+    vlist = sorted([di[k][1] for k in klist])
+    x = []
+    y = []
+    for temperature in range(1, 500):
+        tmp = temperature * 0.001
+        q = [np.exp(a / tmp) for a in vlist]
+        plist = [qa / sum(q) * 100 for qa in q]
+        x.append(tmp)
+        y.append(plist[-3] / (1 / le))
+    plt.plot(x, y)
+
+
 class Agent:
     # 盤面の情報は、先手・後手(定数)、何手目(計算が簡単)、石値合計(np.sum(state))。打てる手数(ついでで使える)で分類して絞り込めるようにすることで計算時間を削減したい
     def __init__(self, side, mode=0, env=None, tmp=TEMPERATURE, tmpupdate=False):
@@ -89,6 +103,7 @@ class Agent:
         self.gamma = GAMMA
         self.epsilon = EPSILON
         self.temperature = tmp
+        self.deftmp = tmp
         self.environment = env
         self.prevalue = 0
         self.count = 0
@@ -99,7 +114,7 @@ class Agent:
             self.turn = 1
 
     def reset(self):
-        self.epsilon, self.log, self.temperature = EPSILON, [], TEMPERATURE
+        self.epsilon, self.log, self.temperature = EPSILON, [], self.deftmp
         if self.side == BLACK:
             self.turn = 0
         elif self.side == WHITE:
@@ -120,6 +135,8 @@ class Agent:
         else:
             statesetlist = qtableread(stn, self.side)
             if statesetlist is not None:
+                # n番目に強い選択肢の温度による選択確立推移
+                graph(statesetlist, len(self.environment.actlist))
                 if self.mode == 2:
                     act = self.softmaxchoice(dict=statesetlist)
                 else:
@@ -241,7 +258,7 @@ def test(whiteside, blackside, set):
     n = 0
     env = environment.Environment(SIZE)
     agentw = Agent(side=WHITE, env=env)
-    agentb = Agent(side=BLACK,mode=2,env=env,tmp=1)
+    agentb = Agent(side=BLACK, env=env)
     for count in range(set):
         env.reset()
         while env.winner is None:
@@ -271,13 +288,14 @@ def test(whiteside, blackside, set):
     print("総試合数:" + str(n) + "回")
     return [wwin, bwin, draw, n]
 
-#温度の推移見る用
+
+# 温度の推移見る用
 def test2(env=None, agentw=None, agentb=None, istmp=False):
     x, y1, y2 = [], [], []
     if env is None:
         env = environment.Environment(SIZE)
     if agentw is None:
-        agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.1)
+        agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.15)
     if agentb is None:
         agentb = Agent(side=BLACK, mode=2, env=env, tmpupdate=True)
     env.reset()
@@ -306,11 +324,11 @@ def test2(env=None, agentw=None, agentb=None, istmp=False):
 
 
 def test3():
-    x,y=[],[]
+    x, y = [], []
     env = environment.Environment(SIZE)
-    for tmp in range(1,80):
-        bwin=0
-        agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp*0.01)
+    for tmp in range(1, 50):
+        bwin = 0
+        agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp * 0.01)
         for count in range(1000):
             env.reset()
             while env.winner is None:
@@ -322,11 +340,11 @@ def test3():
             if winner == BLACK:
                 bwin += 1
             agentb.reset()
-        x.append(tmp*0.01)
-        y.append(bwin/100)
-    plt.plot(x,y)
+        x.append(tmp * 0.01)
+        y.append(bwin / 1000)
+        print(bwin / 1000)
+    plt.plot(x, y)
     plt.show()
-
 
 
 def vsplayer(whiteside=False, blackside=False):
@@ -395,6 +413,11 @@ def t():
 if __name__ == "__main__":
     # t()
     # vsplayer(whiteside=True)
-    #print(test2(istmp=True))
-    #test3()
-    test(whiteside=False, blackside=True, set=1000)
+    # print(test2(istmp=True))
+
+    test(whiteside=False, blackside=True, set=5)
+    plt.show()
+    # 一試合での温度推移確認
+    # test2(istmp=True)
+    # 温度による勝率推移確認
+    # test3()
