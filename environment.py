@@ -29,8 +29,8 @@ class Environment:
 
     def reset(self):
         self.stateinit()
-        self.side, self.winner, self.isPassed, self.turn, self.actlist, self.prestate, self.preact \
-            = BLACK, None, False, 0, [], [], []
+        self.side, self.winner, self.isPassed, self.turn, self.actlist, self.prestate, self.preact,self.preactlist \
+            = BLACK, None, False, 0, [], [], [],[]
         self.makeactlist()
 
     def turn_change(self):
@@ -48,7 +48,7 @@ class Environment:
     # 行動をする。成功したらTrue、失敗ならFalseを返す
     def action(self, act):
         if act in self.actlist:
-            self.preact, self.prestate = act, copy(self.state)
+            self.preact, self.prestate,self.preactlist = act, copy(self.state),copy(self.actlist)
             if len(act) == 0:
                 if self.isPassed:
                     self.decidewinner()

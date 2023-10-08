@@ -28,7 +28,7 @@ LOSEREWORD = -1 * WINREWORD
 DRAWREWORD = 0.01
 
 # PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(SIZE) + "/"
-PATH = "E:/qtables/" + "table" + str(SIZE) + "/"
+PATH = "F:/qtables/" + "table" + str(SIZE) + "/"
 RAYER = int((SIZE * SIZE - 1) / 12)
 
 
@@ -90,7 +90,7 @@ def graph(di, le):
         q = [np.exp(a / tmp) for a in vlist]
         plist = [qa / sum(q) * 100 for qa in q]
         x.append(tmp)
-        y.append(plist[-3] / (1 / le))
+        y.append(plist[-2] / (1 / le))
     plt.plot(x, y)
 
 
@@ -125,7 +125,7 @@ class Agent:
         stn = statetonum(self.environment.state)
         self.epsilon -= 0.02
         if self.mode == 2 and self.istmpupdate:
-            value = self.valuecheck(self.environment.preact, self.environment.prestate)
+            value = self.valuecheck()
             self.tmpupdate(value)
         if len(self.environment.actlist) == 1:  # 選択肢が一つしかないとき
             act = self.environment.actlist[0]
@@ -136,11 +136,11 @@ class Agent:
             statesetlist = qtableread(stn, self.side)
             if statesetlist is not None:
                 # n番目に強い選択肢の温度による選択確立推移
-                graph(statesetlist, len(self.environment.actlist))
+                # graph(statesetlist, len(self.environment.actlist))
                 if self.mode == 2:
                     act = self.softmaxchoice(dict=statesetlist)
                 else:
-
+                    #print(self.turn)
                     act = maxreword(dict=statesetlist)
             else:
                 act = choice(self.environment.actlist)
@@ -152,34 +152,37 @@ class Agent:
     def softmaxchoice(self, dict):
         klist = list(dict.keys())
         vlist = [dict[k][1] for k in klist]
-        q = [exp(a / self.temperature) for a in vlist]
+        b = [a / self.temperature for a in vlist]
+        q = [exp(i) for i in b]
+        if float('inf') in q or 0 in q:
+            n = 1
+            while float('inf') in q:
+                n *= 10
+                b = [a / n for a in b]
+                q = [exp(i) for i in b]
         plist = [qa / sum(q) for qa in q]
+        if True in np.isnan(plist):
+            print(vlist)
+            print(b)
+            print(q)
+            print(plist)
         m = klist[npchoice(list(range(len(klist))), p=plist)]
         return [int(m[1]), int(m[-2])]
 
-    def valuecheck(self, preact, prestate):
-        stn = statetonum(prestate)
+    def valuecheck(self):
+        stn = statetonum(self.environment.prestate)
         statesetlist = qtableread(stn, self.side * -1)
         if statesetlist is not None:
             klist = list(statesetlist.keys())
             vlist = [statesetlist[k][1] for k in klist]
-            indx = klist.index(str(preact))
-            n = 0.05
-            if self.temperature - n <= 0:
-                q = [exp(a / 0.01) for a in vlist]
-            else:
-                q = [exp(a / (self.temperature - n)) for a in vlist]
+            indx = klist.index(str(self.environment.preact))
+            q = [exp(a / 0.1) for a in vlist]
             plist = [qa / sum(q) for qa in q]
-            m = plist[indx]
-            q = [exp(a / (self.temperature + n)) for a in vlist]
-            plist = [qa / sum(q) for qa in q]
-            n = plist[indx]
-            if m > n:
-                return -1
-            else:
-                return 1
+            return (plist[indx] -(1/len(klist)))*-1
         else:
-            return 0.5
+            if len(self.environment.prestate)!=0:
+                return (abs(np.sum(np.copy(self.environment.state)-self.environment.prestate))*0.1 -(1/len(self.environment.preactlist)))*-0.5
+            return 0
 
     def tmpupdate(self, value):
         dbg = [value]
@@ -202,11 +205,11 @@ class Agent:
         if value > 0:
             amp *= 2
             dbg.append("plus")
-        # print("tmp:" + str(self.temperature))
-        # print("amp:" + str(amp))
-        # print(dbg)
-        if self.temperature + (value * amp) < 0.01:
-            self.temperature = 0.01
+        print("tmp:" + str(self.temperature))
+        print("amp:" + str(amp))
+        print(dbg)
+        if self.temperature + (value * amp) <= 0:
+            self.temperature = 0.001
         else:
             self.temperature += value * amp
 
@@ -258,7 +261,7 @@ def test(whiteside, blackside, set):
     n = 0
     env = environment.Environment(SIZE)
     agentw = Agent(side=WHITE, env=env)
-    agentb = Agent(side=BLACK, env=env)
+    agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.01)
     for count in range(set):
         env.reset()
         while env.winner is None:
@@ -326,9 +329,9 @@ def test2(env=None, agentw=None, agentb=None, istmp=False):
 def test3():
     x, y = [], []
     env = environment.Environment(SIZE)
-    for tmp in range(1, 50):
+    for tmp in range(1, 700):
         bwin = 0
-        agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp * 0.01)
+        agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp * 0.001)
         for count in range(1000):
             env.reset()
             while env.winner is None:
@@ -395,10 +398,10 @@ def vsplayer(whiteside=False, blackside=False):
 def t():
     logs = log.LOG(SIZE)
     testset = 100
-    trainset = 1000
+    trainset = 2000
     _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     logs.save(bwin / n, 0)
-    for i in range(10):
+    for i in range(1):
         s = time.perf_counter()
         print("train...")
         train(trainset)
@@ -414,10 +417,13 @@ if __name__ == "__main__":
     # t()
     # vsplayer(whiteside=True)
     # print(test2(istmp=True))
-
-    test(whiteside=False, blackside=True, set=5)
-    plt.show()
+    s=time.perf_counter()
+    t()
+    #test(whiteside=False, blackside=True, set=1000)
+    e=time.perf_counter()
+    print(e-s)
+    # plt.show()
     # 一試合での温度推移確認
-    # test2(istmp=True)
+    #test2(istmp=True)
     # 温度による勝率推移確認
-    # test3()
+    #test3()
