@@ -12,12 +12,14 @@ import log
 import tkinter as tk
 import envgui
 import matplotlib.pyplot as plt
+import qtable
+from concurrent import futures
 
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
-SIZE = 6
+SIZE = 4
 GAMMA = 0.95  # 割引率
 EPSILON = 0.9
 TEMPERATURE = 0.01  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
@@ -30,38 +32,6 @@ DRAWREWORD = 0.01
 # PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(SIZE) + "/"
 PATH = "F:/qtables/" + "table" + str(SIZE) + "/"
 RAYER = int((SIZE * SIZE - 1) / 12)
-
-
-def qtableread(filename: str, side: int):
-    if side == 1:
-        a = "b/"
-    else:
-        a = "w/"
-    fn = "".join([filename[12 * i:12 * (i + 1)] + "/" for i in range(RAYER)])
-    try:
-        if os.path.isfile(PATH + a + fn + filename + ".pkl"):
-            with open(PATH + a + fn + filename + ".pkl", 'rb') as f:
-                data = pickle.load(f)
-            return data
-        else:
-            return
-    except:
-        print(filename)
-
-
-def qtablesave(filename: str, obj: dict, side: int):
-    if side == 1:
-        a = "b/"
-    else:
-        a = "w/"
-    fl = [filename[12 * i:12 * (i + 1)] + "/" for i in range(RAYER)]
-    s = ""
-    for l in fl:
-        s += l
-        if not os.path.isdir(PATH + a + s):
-            os.mkdir(PATH + a + s)
-    with open(PATH + a + s + filename + ".pkl", 'wb') as f:
-        pickle.dump(obj, f)
 
 
 def statetonum(state):
@@ -96,7 +66,7 @@ def graph(di, le):
 
 class Agent:
     # 盤面の情報は、先手・後手(定数)、何手目(計算が簡単)、石値合計(np.sum(state))。打てる手数(ついでで使える)で分類して絞り込めるようにすることで計算時間を削減したい
-    def __init__(self, side, mode=0, env=None, tmp=TEMPERATURE, tmpupdate=False):
+    def __init__(self, side, mode=0, env=None, tmp=TEMPERATURE, tmpupdate=False, qtable=qtable.Qtable(SIZE)):
         self.mode = mode
         self.side = side
         self.log = []
@@ -108,6 +78,7 @@ class Agent:
         self.prevalue = 0
         self.count = 0
         self.istmpupdate = tmpupdate
+        self.qtable = qtable
         if side == BLACK:
             self.turn = 0
         elif side == WHITE:
@@ -131,16 +102,16 @@ class Agent:
             act = self.environment.actlist[0]
         elif self.mode == 1 and self.epsilon <= random():
             act = choice(self.environment.actlist)
-            statesetlist = qtableread(stn, self.side)
+            statesetlist = self.qtable.qtableread(stn, self.side)
         else:
-            statesetlist = qtableread(stn, self.side)
+            statesetlist = self.qtable.qtableread(stn, self.side)
             if statesetlist is not None:
                 # n番目に強い選択肢の温度による選択確立推移
                 # graph(statesetlist, len(self.environment.actlist))
                 if self.mode == 2:
                     act = self.softmaxchoice(dict=statesetlist)
                 else:
-                    #print(self.turn)
+                    # print(self.turn)
                     act = maxreword(dict=statesetlist)
             else:
                 act = choice(self.environment.actlist)
@@ -161,27 +132,27 @@ class Agent:
                 b = [a / n for a in b]
                 q = [exp(i) for i in b]
         plist = [qa / sum(q) for qa in q]
-        if True in np.isnan(plist):
-            print(vlist)
-            print(b)
-            print(q)
-            print(plist)
         m = klist[npchoice(list(range(len(klist))), p=plist)]
         return [int(m[1]), int(m[-2])]
 
     def valuecheck(self):
         stn = statetonum(self.environment.prestate)
-        statesetlist = qtableread(stn, self.side * -1)
+        statesetlist = self.qtable.qtableread(stn, self.side * -1)
         if statesetlist is not None:
             klist = list(statesetlist.keys())
             vlist = [statesetlist[k][1] for k in klist]
             indx = klist.index(str(self.environment.preact))
-            q = [exp(a / 0.1) for a in vlist]
+            q = [exp(a / self.temperature) for a in vlist]
             plist = [qa / sum(q) for qa in q]
-            return (plist[indx] -(1/len(klist)))*-1
+            m = plist[npchoice(list(range(len(klist))), p=plist)]
+            if plist[indx]>=m:
+                return -1
+            else:
+                return 1
         else:
-            if len(self.environment.prestate)!=0:
-                return (abs(np.sum(np.copy(self.environment.state)-self.environment.prestate))*0.1 -(1/len(self.environment.preactlist)))*-0.5
+            if len(self.environment.prestate) != 0:
+                return (abs(np.sum(np.copy(self.environment.state) - self.environment.prestate)) * 0.1 - (
+                            1 / len(self.environment.preactlist))) * -0.5
             return 0
 
     def tmpupdate(self, value):
@@ -220,19 +191,19 @@ class Agent:
             if step[4] is not None:
                 q = step[4][str(step[2])]
                 q += [1, (r - q[1]) / (q[0] + 1)]
-                qtablesave(step[3], step[4], self.side)
+                self.qtable.qtablesave(step[3], step[4], self.side)
             else:
                 ql = {}
                 for a in step[1]:
                     ql[str(a)] = np.array([0, 0], dtype=np.float32)
                 ql[str(step[2])] += [1, r]
-                qtablesave(step[3], ql, self.side)
+                self.qtable.qtablesave(step[3], ql, self.side)
 
 
-def train(episode):
+def train(episode, qtb):
     env = environment.Environment(SIZE)
-    agentw = Agent(side=WHITE, mode=1, env=env)
-    agentb = Agent(side=BLACK, mode=1, env=env)
+    agentw = Agent(side=WHITE, mode=1, env=env, qtable=qtb)
+    agentb = Agent(side=BLACK, mode=1, env=env, qtable=qtb)
     for count in range(episode):
         env.reset()
         while env.winner is None:
@@ -393,37 +364,46 @@ def vsplayer(whiteside=False, blackside=False):
     else:
         print("引き分け")
     thread1.join()
+def fnk(qtb):
+    testset = 1000
+    trainset = 10000
+    s = time.perf_counter()
+    print("train...")
+    train(trainset, qtb)
+    print("test...")
+    _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
+    e = time.perf_counter()
+    print(e - s)
+    #logs.save(bwin / n, trainset)
 
 
 def t():
+    qtb = qtable.Qtable(SIZE, save=True,mul=2)
     logs = log.LOG(SIZE)
     testset = 100
-    trainset = 2000
-    _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
-    logs.save(bwin / n, 0)
-    for i in range(1):
-        s = time.perf_counter()
-        print("train...")
-        train(trainset)
-        print("test...")
-        _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
-        e = time.perf_counter()
-        print(e - s)
-        logs.save(bwin / n, trainset)
-    logs.show()
+    trainset = 1000
+    #_, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
+    #logs.save(bwin / n, 0)
+    with futures.ProcessPoolExecutor(max_workers=2) as executor:
+        for i in range(2):
+            executor.submit(fnk,qtb)
+    print("save")
+    qtb.finalsave()
+    logs.end()
+    #logs.show()
 
 
 if __name__ == "__main__":
     # t()
     # vsplayer(whiteside=True)
     # print(test2(istmp=True))
-    s=time.perf_counter()
+    s = time.perf_counter()
     t()
-    #test(whiteside=False, blackside=True, set=1000)
-    e=time.perf_counter()
-    print(e-s)
+    # test(whiteside=False, blackside=True, set=1000)
+    e = time.perf_counter()
+    print(e - s)
     # plt.show()
     # 一試合での温度推移確認
-    #test2(istmp=True)
+    # test2(istmp=True)
     # 温度による勝率推移確認
-    #test3()
+    # test3()
