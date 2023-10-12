@@ -13,7 +13,7 @@ import tkinter as tk
 import envgui
 import matplotlib.pyplot as plt
 import qtable
-from concurrent import futures
+
 
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
@@ -66,7 +66,7 @@ def graph(di, le):
 
 class Agent:
     # 盤面の情報は、先手・後手(定数)、何手目(計算が簡単)、石値合計(np.sum(state))。打てる手数(ついでで使える)で分類して絞り込めるようにすることで計算時間を削減したい
-    def __init__(self, side, mode=0, env=None, tmp=TEMPERATURE, tmpupdate=False, qtable=qtable.Qtable(SIZE)):
+    def __init__(self, side, mode=0, env=None, tmp=TEMPERATURE, tmpupdate=False, qtable=qtable.Qtable(SIZE,path=PATH)):
         self.mode = mode
         self.side = side
         self.log = []
@@ -364,29 +364,25 @@ def vsplayer(whiteside=False, blackside=False):
     else:
         print("引き分け")
     thread1.join()
-def fnk(qtb):
-    testset = 1000
-    trainset = 10000
-    s = time.perf_counter()
-    print("train...")
-    train(trainset, qtb)
-    print("test...")
-    _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
-    e = time.perf_counter()
-    print(e - s)
-    #logs.save(bwin / n, trainset)
+
 
 
 def t():
-    qtb = qtable.Qtable(SIZE, save=True,mul=2)
+    qtb = qtable.Qtable(SIZE, save=True,path=PATH)
     logs = log.LOG(SIZE)
     testset = 100
     trainset = 1000
     #_, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     #logs.save(bwin / n, 0)
-    with futures.ProcessPoolExecutor(max_workers=2) as executor:
-        for i in range(2):
-            executor.submit(fnk,qtb)
+    for i in range(2):
+            s = time.perf_counter()
+            print("train...")
+            train(trainset, qtb)
+            print("test...")
+            _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
+            e = time.perf_counter()
+            print(e - s)
+            # logs.save(bwin / n, trainset)
     print("save")
     qtb.finalsave()
     logs.end()
