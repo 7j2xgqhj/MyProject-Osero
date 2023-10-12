@@ -151,8 +151,15 @@ class Agent:
                 return 1
         else:
             if len(self.environment.prestate) != 0:
-                return (abs(np.sum(np.copy(self.environment.state) - self.environment.prestate)) * 0.1 - (
-                            1 / len(self.environment.preactlist))) * -0.5
+                vlist = self.environment.prediflist
+                indx = self.environment.preactlist.index(self.environment.preact)
+                q = [exp(a / self.temperature) for a in vlist]
+                plist = [qa / sum(q) for qa in q]
+                m = plist[npchoice(list(range(len(vlist))), p=plist)]
+                if plist[indx] >= m:
+                    return -0.8
+                else:
+                    return 0.8
             return 0
 
     def tmpupdate(self, value):
@@ -394,8 +401,8 @@ if __name__ == "__main__":
     # vsplayer(whiteside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
-    t()
-    # test(whiteside=False, blackside=True, set=1000)
+    #t()
+    test(whiteside=False, blackside=True, set=1)
     e = time.perf_counter()
     print(e - s)
     # plt.show()

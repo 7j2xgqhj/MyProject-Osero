@@ -29,8 +29,8 @@ class Environment:
 
     def reset(self):
         self.stateinit()
-        self.side, self.winner, self.isPassed, self.turn, self.actlist, self.prestate, self.preact,self.preactlist \
-            = BLACK, None, False, 0, [], [], [],[]
+        self.side, self.winner, self.isPassed, self.turn, self.actlist, self.prestate, self.preact,self.preactlist,self.statelist,self.diflist,self.prestatelist,self.prediflist \
+            = BLACK, None, False, 0, [], [], [],[],[],[],[],[]
         self.makeactlist()
 
     def turn_change(self):
@@ -38,24 +38,32 @@ class Environment:
 
     # self.actlistを更新
     def makeactlist(self):
-        actionlist, statecopy = [], copy(self.state)
-        [actionlist.append([i, j]) for i in range(self.size) for j in range(self.size) if
-         statecopy[i][j] == BLANK and self.reversestones([i, j]).size != 0]
+        actionlist, statelist,diflist,statecopy = [],[],[], copy(self.state)
+        for i in range(self.size):
+            for j in range(self.size):
+                if statecopy[i][j] == BLANK:
+                    st,dif=self.reversestones([i, j])
+                    if dif!=0:
+                        actionlist.append([i, j])
+                        statelist.append(st)
+                        diflist.append(dif)
         if len(actionlist) == 0:
             actionlist.append([])
         self.actlist = actionlist
-
+        self.statelist=statelist
+        self.diflist=diflist
     # 行動をする。成功したらTrue、失敗ならFalseを返す
     def action(self, act):
         if act in self.actlist:
             self.preact, self.prestate,self.preactlist = act, copy(self.state),copy(self.actlist)
+            self.prestatelist,self.prediflist=self.statelist,self.diflist
             if len(act) == 0:
                 if self.isPassed:
                     self.decidewinner()
                 else:
                     self.isPassed = True
             else:
-                self.state, self.isPassed = self.reversestones(act), False
+                self.state, self.isPassed = self.statelist[self.actlist.index(act)], False
             self.turn += 1
             self.turn_change(), self.makeactlist()
             return True
@@ -93,8 +101,7 @@ class Environment:
                 else:  # 上以外(同じ色しかない)
                     break
                 localindex = add(localindex, directon)  # 各方向にひとつづつ進める
-        if np.all(self.state == arrayclone):
-            return np.zeros(0, dtype=np.int8)
-        else:
-            arrayclone[index[0]][index[1]] = self.side
-            return arrayclone
+
+        difference=abs(np.sum(np.copy(self.state) - arrayclone))
+        arrayclone[index[0]][index[1]] = self.side
+        return arrayclone,difference

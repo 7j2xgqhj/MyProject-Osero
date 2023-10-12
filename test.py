@@ -27,5 +27,6 @@ def qtableread(filename: str, side: int):
             return data
     except:
         print(filename)
-qtb=qtable.Qtable(SIZE, save=True,mul=2)
-print(qtb.qtableread('1111102112011111',1))
+def a ():
+    return 1,2
+print(a()[1])
