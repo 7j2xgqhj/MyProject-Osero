@@ -14,12 +14,11 @@ import envgui
 import matplotlib.pyplot as plt
 import qtable
 
-
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
-SIZE = 4
+SIZE = 6
 GAMMA = 0.95  # 割引率
 EPSILON = 0.9
 TEMPERATURE = 0.01  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
@@ -66,7 +65,7 @@ def graph(di, le):
 
 class Agent:
     # 盤面の情報は、先手・後手(定数)、何手目(計算が簡単)、石値合計(np.sum(state))。打てる手数(ついでで使える)で分類して絞り込めるようにすることで計算時間を削減したい
-    def __init__(self, side, mode=0, env=None, tmp=TEMPERATURE, tmpupdate=False, qtable=qtable.Qtable(SIZE,path=PATH)):
+    def __init__(self, side, mode=0, env=None, tmp=TEMPERATURE, tmpupdate=False, qtable=qtable.Qtable(SIZE, path=PATH)):
         self.mode = mode
         self.side = side
         self.log = []
@@ -145,21 +144,32 @@ class Agent:
             q = [exp(a / self.temperature) for a in vlist]
             plist = [qa / sum(q) for qa in q]
             m = plist[npchoice(list(range(len(klist))), p=plist)]
-            if plist[indx]>=m:
+            if plist[indx] >= m:
                 return -1
             else:
                 return 1
         else:
             if len(self.environment.prestate) != 0:
-                vlist = self.environment.prediflist
-                indx = self.environment.preactlist.index(self.environment.preact)
-                q = [exp(a / self.temperature) for a in vlist]
-                plist = [qa / sum(q) for qa in q]
-                m = plist[npchoice(list(range(len(vlist))), p=plist)]
-                if plist[indx] >= m:
-                    return -0.8
+                if len(self.environment.preactlist) > 1:
+                    vlist = self.environment.prediflist
+                    indx = self.environment.preactlist.index(self.environment.preact)
+                    b = [a / self.temperature for a in vlist]
+                    q = [exp(i) for i in b]
+                    if float('inf') in q or 0 in q:
+                        n = 1
+                        while float('inf') in q:
+                            n *= 10
+                            b = [a / n for a in b]
+                            q = [exp(i) for i in b]
+                    plist = [qa / sum(q) for qa in q]
+                    print(plist)
+                    m = plist[npchoice(list(range(len(vlist))), p=plist)]
+                    if plist[indx] >= m:
+                        return -0.8
+                    else:
+                        return 0.8
                 else:
-                    return 0.8
+                    return 0.2
             return 0
 
     def tmpupdate(self, value):
@@ -329,7 +339,7 @@ def test3():
 
 
 def vsplayer(whiteside=False, blackside=False):
-    os.mkdir("play")
+
     env = environment.Environment(SIZE)
 
     def gui():
@@ -338,8 +348,8 @@ def vsplayer(whiteside=False, blackside=False):
 
     thread1 = threading.Thread(target=gui)
     thread1.start()
-    agentw = Agent(side=WHITE, mode=2, env=env)
-    agentb = Agent(side=BLACK, mode=2, env=env)
+    agentw = Agent(side=WHITE, mode=1, env=env)
+    agentb = Agent(side=BLACK, mode=1, env=env)
     while env.winner is None:
         if env.side == WHITE:
             if not whiteside:
@@ -373,40 +383,39 @@ def vsplayer(whiteside=False, blackside=False):
     thread1.join()
 
 
-
 def t():
-    qtb = qtable.Qtable(SIZE, save=True,path=PATH)
+    qtb = qtable.Qtable(SIZE, save=True, path=PATH)
     logs = log.LOG(SIZE)
     testset = 100
     trainset = 1000
-    #_, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
-    #logs.save(bwin / n, 0)
+    # _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
+    # logs.save(bwin / n, 0)
     for i in range(2):
-            s = time.perf_counter()
-            print("train...")
-            train(trainset, qtb)
-            print("test...")
-            _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
-            e = time.perf_counter()
-            print(e - s)
-            # logs.save(bwin / n, trainset)
+        s = time.perf_counter()
+        print("train...")
+        train(trainset, qtb)
+        print("test...")
+        _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
+        e = time.perf_counter()
+        print(e - s)
+        # logs.save(bwin / n, trainset)
     print("save")
     qtb.finalsave()
     logs.end()
-    #logs.show()
+    # logs.show()
 
 
 if __name__ == "__main__":
     # t()
-    # vsplayer(whiteside=True)
+    vsplayer(whiteside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
-    #t()
-    test(whiteside=False, blackside=True, set=1)
+    # t()
+    # test(whiteside=False, blackside=True, set=1)
     e = time.perf_counter()
     print(e - s)
     # plt.show()
     # 一試合での温度推移確認
-    # test2(istmp=True)
+    #test2(istmp=True)
     # 温度による勝率推移確認
     # test3()

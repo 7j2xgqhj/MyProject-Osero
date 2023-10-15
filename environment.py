@@ -55,7 +55,7 @@ class Environment:
     # 行動をする。成功したらTrue、失敗ならFalseを返す
     def action(self, act):
         if act in self.actlist:
-            self.preact, self.prestate,self.preactlist = act, copy(self.state),copy(self.actlist)
+            self.preact, self.prestate,self.preactlist = act, copy(self.state),copy(self.actlist).tolist()
             self.prestatelist,self.prediflist=self.statelist,self.diflist
             if len(act) == 0:
                 if self.isPassed:
