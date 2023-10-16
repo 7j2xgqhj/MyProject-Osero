@@ -4,11 +4,12 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-import qtable
+import environment
+
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
-SIZE = 4
+SIZE = 8
 # PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(SIZE) + "/"
 PATH = "E:/qtables/" + "table" + str(SIZE) + "/"
 RAYER = int((SIZE * SIZE - 1) / 12)
@@ -27,6 +28,18 @@ def qtableread(filename: str, side: int):
             return data
     except:
         print(filename)
-def a ():
-    return 1,2
-print(a()[1])
+
+
+env = environment.Environment(SIZE)
+a = env.state
+print(a)
+b = np.rot90(a,1)
+print(b)
+c=np.flipud(a)
+#print(c)
+d=np.where(c>1,0,c)
+print(d)
+e=list(zip(*np.where(a==2)))[0]
+print(e)
+print([[i[0],i[1]]for i in list(zip(*np.where(a > 1)))])
+print(str([1,2])[-2])

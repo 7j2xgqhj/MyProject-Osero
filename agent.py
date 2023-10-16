@@ -13,12 +13,12 @@ import tkinter as tk
 import envgui
 import matplotlib.pyplot as plt
 import qtable
-
+from numpy import copy
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
-SIZE = 6
+SIZE = 4
 GAMMA = 0.95  # 割引率
 EPSILON = 0.9
 TEMPERATURE = 0.01  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
@@ -29,16 +29,9 @@ LOSEREWORD = -1 * WINREWORD
 DRAWREWORD = 0.01
 
 # PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(SIZE) + "/"
-PATH = "F:/qtables/" + "table" + str(SIZE) + "/"
+PATH = "E:/qtables/" + "table" + str(SIZE) + "/"
 RAYER = int((SIZE * SIZE - 1) / 12)
 
-
-def statetonum(state):
-    statestr = ""
-    for i in state:
-        for j in i:
-            statestr += str(j + 1)
-    return statestr
 
 
 def maxreword(dict):
@@ -92,7 +85,7 @@ class Agent:
 
     def action(self):
         statesetlist = None
-        stn = statetonum(self.environment.state)
+        qr=""
         self.epsilon -= 0.02
         if self.mode == 2 and self.istmpupdate:
             value = self.valuecheck()
@@ -101,9 +94,9 @@ class Agent:
             act = self.environment.actlist[0]
         elif self.mode == 1 and self.epsilon <= random():
             act = choice(self.environment.actlist)
-            statesetlist = self.qtable.qtableread(stn, self.side)
+            statesetlist,qr = self.qtable.qtableread(self.environment.state, self.side)
         else:
-            statesetlist = self.qtable.qtableread(stn, self.side)
+            statesetlist,qr = self.qtable.qtableread(self.environment.state, self.side)
             if statesetlist is not None:
                 # n番目に強い選択肢の温度による選択確立推移
                 # graph(statesetlist, len(self.environment.actlist))
@@ -115,7 +108,7 @@ class Agent:
             else:
                 act = choice(self.environment.actlist)
         if self.mode == 1 and len(act) != 0 and len(self.environment.actlist) > 1:
-            self.log.append([self.turn, self.environment.actlist, act, stn, statesetlist])
+            self.log.append([self.turn, self.environment.actlist, act, qr, statesetlist])
         self.turn += 2
         return act
 
@@ -135,8 +128,7 @@ class Agent:
         return [int(m[1]), int(m[-2])]
 
     def valuecheck(self):
-        stn = statetonum(self.environment.prestate)
-        statesetlist = self.qtable.qtableread(stn, self.side * -1)
+        statesetlist,_ = self.qtable.qtableread(self.environment.prestate, self.side * -1)
         if statesetlist is not None:
             klist = list(statesetlist.keys())
             vlist = [statesetlist[k][1] for k in klist]
@@ -150,9 +142,10 @@ class Agent:
                 return 1
         else:
             if len(self.environment.prestate) != 0:
-                if len(self.environment.preactlist) > 1:
+                preactlist=self.environment.preactlist
+                if len(preactlist) > 1:
                     vlist = self.environment.prediflist
-                    indx = self.environment.preactlist.index(self.environment.preact)
+                    indx = preactlist.index(self.environment.preact)
                     b = [a / self.temperature for a in vlist]
                     q = [exp(i) for i in b]
                     if float('inf') in q or 0 in q:
@@ -407,11 +400,11 @@ def t():
 
 if __name__ == "__main__":
     # t()
-    vsplayer(whiteside=True)
+    #vsplayer(whiteside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
-    # t()
-    # test(whiteside=False, blackside=True, set=1)
+    t()
+    #test(whiteside=False, blackside=True, set=1)
     e = time.perf_counter()
     print(e - s)
     # plt.show()

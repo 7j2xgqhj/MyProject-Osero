@@ -1,8 +1,6 @@
-
 import numpy as np
 from numpy import add
 from numpy import copy
-from copy import deepcopy
 
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
@@ -29,8 +27,8 @@ class Environment:
 
     def reset(self):
         self.stateinit()
-        self.side, self.winner, self.isPassed, self.turn, self.actlist, self.prestate, self.preact,self.preactlist,self.statelist,self.diflist,self.prestatelist,self.prediflist \
-            = BLACK, None, False, 0, [], [], [],[],[],[],[],[]
+        self.side, self.winner, self.isPassed, self.turn,  self.prestate, self.preact,self.actlist,self.preactlist \
+            = BLACK, None, False, 0, [], [],[],[]
         self.makeactlist()
 
     def turn_change(self):
@@ -38,32 +36,38 @@ class Environment:
 
     # self.actlistを更新
     def makeactlist(self):
-        actionlist, statelist,diflist,statecopy = [],[],[], copy(self.state)
+        ind = []
+        n=2
+        self.state = np.where(self.state > 1, 0, self.state)
         for i in range(self.size):
             for j in range(self.size):
-                if statecopy[i][j] == BLANK:
-                    st,dif=self.reversestones([i, j])
-                    if dif!=0:
-                        actionlist.append([i, j])
-                        statelist.append(st)
-                        diflist.append(dif)
-        if len(actionlist) == 0:
-            actionlist.append([])
-        self.actlist = actionlist
-        self.statelist=statelist
-        self.diflist=diflist
+                if self.state[i][j] == BLANK:
+                    _, dif = self.reversestones([i, j])
+                    if dif != 0:
+                        ind.append([[i, j], n])
+                        n+=1
+        for i in ind:
+            self.state[i[0][0]][i[0][1]] = i[1]
+        actlist=[]
+
+        for i in range(2,n):
+            id=np.where(self.state == i)
+            actlist.append([id[0][0],id[1][0]])
+        self.actlist = actlist
+        if len(self.actlist)==0:
+            self.actlist.append([])
+
     # 行動をする。成功したらTrue、失敗ならFalseを返す
     def action(self, act):
         if act in self.actlist:
             self.preact, self.prestate,self.preactlist = act, copy(self.state),copy(self.actlist).tolist()
-            self.prestatelist,self.prediflist=self.statelist,self.diflist
             if len(act) == 0:
                 if self.isPassed:
                     self.decidewinner()
                 else:
                     self.isPassed = True
             else:
-                self.state, self.isPassed = self.statelist[self.actlist.index(act)], False
+                self.state, self.isPassed = self.reversestones(act)[0], False
             self.turn += 1
             self.turn_change(), self.makeactlist()
             return True
@@ -88,7 +92,8 @@ class Environment:
                                                                                       dtype=np.int8), i, [], False
             localindex = add(localindex, directon)  # 各方向にひとつづつ進める
             while np.all(localindex >= 0) and np.all(localindex < self.size):
-                if arrayclone[localindex[0]][localindex[1]] == BLANK:
+                if arrayclone[localindex[0]][localindex[1]] != BLACK and arrayclone[localindex[0]][
+                    localindex[1]] != WHITE:
                     break
                 elif arrayclone[localindex[0]][localindex[1]] == -1 * self.side:  # 異なる色の石がある
                     isdifferentcoloredstone = True
@@ -102,6 +107,6 @@ class Environment:
                     break
                 localindex = add(localindex, directon)  # 各方向にひとつづつ進める
 
-        difference=abs(np.sum(np.copy(self.state) - arrayclone))
+        difference = abs(np.sum(np.copy(self.state) - arrayclone))
         arrayclone[index[0]][index[1]] = self.side
-        return arrayclone,difference
+        return arrayclone, difference

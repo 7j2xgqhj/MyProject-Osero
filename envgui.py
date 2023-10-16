@@ -64,6 +64,7 @@ class EnvGUI(tk.Frame):
     def click(self, event):
         x = int(event.x / (CANVAS_WIDTH / self.size))
         y = int(event.y / (CANVAS_HIGHT / self.size))
+
         if len(self.env.actlist[0]) == 0:
             with open(str(self.env.turn) + ".pkl", 'wb') as f:
                 pickle.dump([], f)
