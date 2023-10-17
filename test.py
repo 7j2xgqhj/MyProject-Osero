@@ -30,16 +30,5 @@ def qtableread(filename: str, side: int):
         print(filename)
 
 
-env = environment.Environment(SIZE)
-a = env.state
-print(a)
-b = np.rot90(a,1)
-print(b)
-c=np.flipud(a)
-#print(c)
-d=np.where(c>1,0,c)
-print(d)
-e=list(zip(*np.where(a==2)))[0]
-print(e)
-print([[i[0],i[1]]for i in list(zip(*np.where(a > 1)))])
-print(str([1,2])[-2])
+a={}
+print(a["a"])

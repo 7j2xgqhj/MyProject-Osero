@@ -383,7 +383,7 @@ def t():
     trainset = 1000
     # _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     # logs.save(bwin / n, 0)
-    for i in range(2):
+    for i in range(4):
         s = time.perf_counter()
         print("train...")
         train(trainset, qtb)
@@ -393,7 +393,7 @@ def t():
         print(e - s)
         # logs.save(bwin / n, trainset)
     print("save")
-    qtb.finalsave()
+    #qtb.finalsave()
     logs.end()
     # logs.show()
 
@@ -403,8 +403,8 @@ if __name__ == "__main__":
     #vsplayer(whiteside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
-    t()
-    #test(whiteside=False, blackside=True, set=1)
+    #t()
+    test(whiteside=False, blackside=True, set=100)
     e = time.perf_counter()
     print(e - s)
     # plt.show()
