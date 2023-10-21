@@ -14,11 +14,12 @@ import envgui
 import matplotlib.pyplot as plt
 import qtable
 from numpy import copy
+
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 
-SIZE = 4
+SIZE = 6
 GAMMA = 0.95  # 割引率
 EPSILON = 0.9
 TEMPERATURE = 0.01  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
@@ -31,8 +32,7 @@ DRAWREWORD = 0.01
 # PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(SIZE) + "/"
 PATH = "E:/qtables/" + "table" + str(SIZE) + "/"
 RAYER = int((SIZE * SIZE - 1) / 12)
-
-
+VALUERATE=0.3
 
 def maxreword(dict):
     m = list(dict.keys())[0]
@@ -85,7 +85,7 @@ class Agent:
 
     def action(self):
         statesetlist = None
-        qr=""
+        qr = ""
         self.epsilon -= 0.02
         if self.mode == 2 and self.istmpupdate:
             value = self.valuecheck()
@@ -94,9 +94,9 @@ class Agent:
             act = self.environment.actlist[0]
         elif self.mode == 1 and self.epsilon <= random():
             act = choice(self.environment.actlist)
-            statesetlist,qr = self.qtable.qtableread(self.environment.state, self.side)
+            statesetlist, qr = self.qtable.qtableread(self.environment.state, self.side)
         else:
-            statesetlist,qr = self.qtable.qtableread(self.environment.state, self.side)
+            statesetlist, qr = self.qtable.qtableread(self.environment.state, self.side)
             if statesetlist is not None:
                 # n番目に強い選択肢の温度による選択確立推移
                 # graph(statesetlist, len(self.environment.actlist))
@@ -106,9 +106,9 @@ class Agent:
                     # print(self.turn)
                     act = maxreword(dict=statesetlist)
             else:
-                act = choice(self.environment.actlist)
+                act = self.stchoice(self.environment.actlist)
         if self.mode == 1 and len(act) != 0 and len(self.environment.actlist) > 1:
-            self.log.append([self.turn, self.environment.actlist, act, qr, statesetlist])
+            self.log.append([self.turn, self.environment.actlist, act, qr, statesetlist, copy(self.environment.state)])
         self.turn += 2
         return act
 
@@ -123,12 +123,27 @@ class Agent:
                 n *= 10
                 b = [a / n for a in b]
                 q = [exp(i) for i in b]
-        plist = [qa / sum(q) for qa in q]
+        plist = np.array([qa / sum(q) for qa in q])
+        vlist = [self.qtable.getstatevalue(self.environment.statelist[k],self.side) for k in klist]
+        b = [a / self.temperature for a in vlist]
+        q = [exp(i) for i in b]
+        if float('inf') in q or 0 in q:
+            n = 1
+            while float('inf') in q:
+                n *= 10
+                b = [a / n for a in b]
+                q = [exp(i) for i in b]
+        plist2 = np.array([qa / sum(q) for qa in q])
+        hi=VALUERATE
+        plist= plist*(1-hi)+plist2*hi
         m = klist[npchoice(list(range(len(klist))), p=plist)]
         return [int(m[1]), int(m[-2])]
-
+    def stchoice(self,actlist):
+        vlist = [self.qtable.getstatevalue(self.environment.statelist[str(k)], self.side) for k in actlist]
+        ind = vlist.index(max(vlist))
+        return actlist[ind]
     def valuecheck(self):
-        statesetlist,_ = self.qtable.qtableread(self.environment.prestate, self.side * -1)
+        statesetlist, _ = self.qtable.qtableread(self.environment.prestate, self.side * -1)
         if statesetlist is not None:
             klist = list(statesetlist.keys())
             vlist = [statesetlist[k][1] for k in klist]
@@ -142,7 +157,7 @@ class Agent:
                 return 1
         else:
             if len(self.environment.prestate) != 0:
-                preactlist=self.environment.preactlist
+                preactlist = self.environment.preactlist
                 if len(preactlist) > 1:
                     vlist = self.environment.prediflist
                     indx = preactlist.index(self.environment.preact)
@@ -208,6 +223,7 @@ class Agent:
                     ql[str(a)] = np.array([0, 0], dtype=np.float32)
                 ql[str(step[2])] += [1, r]
                 self.qtable.qtablesave(step[3], ql, self.side)
+            self.qtable.tablesave(step[5], r, self.side)
 
 
 def train(episode, qtb):
@@ -241,8 +257,8 @@ def test(whiteside, blackside, set):
     draw = 0
     n = 0
     env = environment.Environment(SIZE)
-    agentw = Agent(side=WHITE, env=env)
-    agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.01)
+    agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
+    agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
     for count in range(set):
         env.reset()
         while env.winner is None:
@@ -332,7 +348,6 @@ def test3():
 
 
 def vsplayer(whiteside=False, blackside=False):
-
     env = environment.Environment(SIZE)
 
     def gui():
@@ -341,8 +356,8 @@ def vsplayer(whiteside=False, blackside=False):
 
     thread1 = threading.Thread(target=gui)
     thread1.start()
-    agentw = Agent(side=WHITE, mode=1, env=env)
-    agentb = Agent(side=BLACK, mode=1, env=env)
+    agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
+    agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
     while env.winner is None:
         if env.side == WHITE:
             if not whiteside:
@@ -391,24 +406,24 @@ def t():
         _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
         e = time.perf_counter()
         print(e - s)
-        # logs.save(bwin / n, trainset)
+        logs.save(bwin / n, trainset)
     print("save")
-    #qtb.finalsave()
+    # qtb.finalsave()
     logs.end()
-    # logs.show()
+    logs.show()
 
 
 if __name__ == "__main__":
     # t()
-    #vsplayer(whiteside=True)
+    #vsplayer(blackside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
     #t()
-    test(whiteside=False, blackside=True, set=100)
+    #test(whiteside=False, blackside=True, set=100)
     e = time.perf_counter()
     print(e - s)
     # plt.show()
     # 一試合での温度推移確認
-    #test2(istmp=True)
+    # test2(istmp=True)
     # 温度による勝率推移確認
     # test3()

@@ -30,5 +30,7 @@ def qtableread(filename: str, side: int):
         print(filename)
 
 
-a={}
-print(a["a"])
+p=os.path.abspath("..\\..\\qcash") + "/table" + str(6) + "/"+"table6.pkl"
+with open(p, 'rb') as f:
+    data = pickle.load(f)
+print(data)

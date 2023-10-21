@@ -27,8 +27,8 @@ class Environment:
 
     def reset(self):
         self.stateinit()
-        self.side, self.winner, self.isPassed, self.turn,  self.prestate, self.preact,self.actlist,self.preactlist \
-            = BLACK, None, False, 0, [], [],[],[]
+        self.side, self.winner, self.isPassed, self.turn,  self.prestate, self.preact,self.actlist,self.preactlist,self.statelist,self.prestatelist \
+            = BLACK, None, False, 0, [], [],[],[],{},{}
         self.makeactlist()
 
     def turn_change(self):
@@ -37,19 +37,21 @@ class Environment:
     # self.actlistを更新
     def makeactlist(self):
         ind = []
+        stli={}
         n=2
         self.state = np.where(self.state > 1, 0, self.state)
         for i in range(self.size):
             for j in range(self.size):
                 if self.state[i][j] == BLANK:
-                    _, dif = self.reversestones([i, j])
+                    s, dif = self.reversestones([i, j])
                     if dif != 0:
                         ind.append([[i, j], n])
+                        stli[str([i,j])]=s
                         n+=1
         for i in ind:
             self.state[i[0][0]][i[0][1]] = i[1]
+        self.statelist=stli
         actlist=[]
-
         for i in range(2,n):
             id=np.where(self.state == i)
             actlist.append([id[0][0],id[1][0]])
@@ -60,7 +62,7 @@ class Environment:
     # 行動をする。成功したらTrue、失敗ならFalseを返す
     def action(self, act):
         if act in self.actlist:
-            self.preact, self.prestate,self.preactlist = act, copy(self.state),copy(self.actlist).tolist()
+            self.preact, self.prestate,self.preactlist,self.prestatelist = act, copy(self.state),copy(self.actlist).tolist(),self.statelist
             if len(act) == 0:
                 if self.isPassed:
                     self.decidewinner()
