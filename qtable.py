@@ -123,7 +123,7 @@ class Qtable:
                 di[li[k]] = obj[k]
             with open(self.cpath + a + fn + stn + ".pkl", 'wb') as f:
                 pickle.dump(di, f)
-            #if not [self.cpath + a + fn + stn + ".pkl", a] in self.filelist:
+            # if not [self.cpath + a + fn + stn + ".pkl", a] in self.filelist:
             #    self.filelist.append([stn, a])
             return
         fl = [stn[12 * i:12 * (i + 1)] + "/" for i in range(self.rayer)]
@@ -168,3 +168,11 @@ class Qtable:
                     n = state[x][y] * side
                 sm += n * self.tdict[str(self.itable[x][y])][1]
         return sm
+
+    def show(self):
+        print(self.tdict)
+        #arr = [[0] * self.size] * self.size
+        #for x in range(self.size):
+        #    for y in range(self.size):
+        #        arr[x][y]=self.tdict[str(self.itable[x][y])][1]
+        #print(arr)

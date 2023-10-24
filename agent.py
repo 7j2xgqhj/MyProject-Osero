@@ -32,7 +32,7 @@ DRAWREWORD = 0.01
 # PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(SIZE) + "/"
 PATH = "E:/qtables/" + "table" + str(SIZE) + "/"
 RAYER = int((SIZE * SIZE - 1) / 12)
-VALUERATE=0.3
+VALUERATE=0.55
 
 def maxreword(dict):
     m = list(dict.keys())[0]
@@ -100,11 +100,7 @@ class Agent:
             if statesetlist is not None:
                 # n番目に強い選択肢の温度による選択確立推移
                 # graph(statesetlist, len(self.environment.actlist))
-                if self.mode == 2:
-                    act = self.softmaxchoice(dict=statesetlist)
-                else:
-                    # print(self.turn)
-                    act = maxreword(dict=statesetlist)
+                act = self.softmaxchoice(dict=statesetlist)
             else:
                 act = self.stchoice(self.environment.actlist)
         if self.mode == 1 and len(act) != 0 and len(self.environment.actlist) > 1:
@@ -117,22 +113,26 @@ class Agent:
         vlist = [dict[k][1] for k in klist]
         b = [a / self.temperature for a in vlist]
         q = [exp(i) for i in b]
-        if float('inf') in q or 0 in q:
+        if float('inf') in q:
             n = 1
             while float('inf') in q:
                 n *= 10
                 b = [a / n for a in b]
                 q = [exp(i) for i in b]
+        while 0 in q:
+            q[q.index(0)] += 0.001
         plist = np.array([qa / sum(q) for qa in q])
         vlist = [self.qtable.getstatevalue(self.environment.statelist[k],self.side) for k in klist]
         b = [a / self.temperature for a in vlist]
         q = [exp(i) for i in b]
-        if float('inf') in q or 0 in q:
+        if float('inf') in q:
             n = 1
             while float('inf') in q:
                 n *= 10
                 b = [a / n for a in b]
                 q = [exp(i) for i in b]
+        while 0 in q:
+            q[q.index(0)]+=0.001
         plist2 = np.array([qa / sum(q) for qa in q])
         hi=VALUERATE
         plist= plist*(1-hi)+plist2*hi
@@ -228,8 +228,8 @@ class Agent:
 
 def train(episode, qtb):
     env = environment.Environment(SIZE)
-    agentw = Agent(side=WHITE, mode=1, env=env, qtable=qtb)
-    agentb = Agent(side=BLACK, mode=1, env=env, qtable=qtb)
+    agentw = Agent(side=WHITE, mode=1, env=env, qtable=qtb,tmp=0.001)
+    agentb = Agent(side=BLACK, mode=1, env=env, qtable=qtb,tmp=0.001)
     for count in range(episode):
         env.reset()
         while env.winner is None:
@@ -257,21 +257,21 @@ def test(whiteside, blackside, set):
     draw = 0
     n = 0
     env = environment.Environment(SIZE)
-    agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
-    agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
+    if whiteside:
+        agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
+    else:
+        agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.8)
+    if blackside:
+        agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
+    else:
+        agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.8)
     for count in range(set):
         env.reset()
         while env.winner is None:
             if env.side == WHITE:
-                if whiteside:
-                    env.action(agentw.action())
-                else:
-                    env.action(choice(env.actlist))
+                env.action(agentw.action())
             else:
-                if blackside:
-                    env.action(agentb.action())
-                else:
-                    env.action(choice(env.actlist))
+                env.action(agentb.action())
         winner = env.winner
         if winner == WHITE:
             wwin += 1
@@ -394,11 +394,11 @@ def vsplayer(whiteside=False, blackside=False):
 def t():
     qtb = qtable.Qtable(SIZE, save=True, path=PATH)
     logs = log.LOG(SIZE)
-    testset = 100
-    trainset = 10000
+    testset = 1
+    trainset = 1
     # _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     # logs.save(bwin / n, 0)
-    for i in range(2):
+    for i in range(1):
         s = time.perf_counter()
         print("train...")
         train(trainset, qtb)
@@ -418,8 +418,8 @@ if __name__ == "__main__":
     #vsplayer(blackside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
-    t()
-    #test(whiteside=False, blackside=True, set=100)
+    #t()
+    test(whiteside=False, blackside=True, set=100)
     e = time.perf_counter()
     print(e - s)
     # plt.show()
