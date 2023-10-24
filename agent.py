@@ -395,10 +395,10 @@ def t():
     qtb = qtable.Qtable(SIZE, save=True, path=PATH)
     logs = log.LOG(SIZE)
     testset = 100
-    trainset = 1000
+    trainset = 10000
     # _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     # logs.save(bwin / n, 0)
-    for i in range(4):
+    for i in range(2):
         s = time.perf_counter()
         print("train...")
         train(trainset, qtb)
@@ -418,7 +418,7 @@ if __name__ == "__main__":
     #vsplayer(blackside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
-    #t()
+    t()
     #test(whiteside=False, blackside=True, set=100)
     e = time.perf_counter()
     print(e - s)

@@ -123,8 +123,8 @@ class Qtable:
                 di[li[k]] = obj[k]
             with open(self.cpath + a + fn + stn + ".pkl", 'wb') as f:
                 pickle.dump(di, f)
-            if not [self.cpath + a + fn + stn + ".pkl", a] in self.filelist:
-                self.filelist.append([stn, a])
+            #if not [self.cpath + a + fn + stn + ".pkl", a] in self.filelist:
+            #    self.filelist.append([stn, a])
             return
         fl = [stn[12 * i:12 * (i + 1)] + "/" for i in range(self.rayer)]
         s = ""
@@ -134,8 +134,8 @@ class Qtable:
                 os.mkdir(self.cpath + a + s)
         with open(self.cpath + a + s + stn + ".pkl", 'wb') as f:
             pickle.dump(obj, f)
-            if not [stn, a] in self.filelist:
-                self.filelist.append([stn, a])
+        #    if not [stn, a] in self.filelist:
+        #        self.filelist.append([stn, a])
 
     def finalsave(self):  # ここ事故
         for fn in self.filelist:
