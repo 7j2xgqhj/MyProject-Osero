@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import os
 import environment
 import qtable
+from parameter import Parameter
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
@@ -29,6 +30,6 @@ def qtableread(filename: str, side: int):
     except:
         print(filename)
 
-qtb=qtable.Qtable(6)
-qtb.show()
+print(Parameter.EPSILON)
+
 

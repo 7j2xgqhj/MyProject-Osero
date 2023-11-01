@@ -14,25 +14,24 @@ import envgui
 import matplotlib.pyplot as plt
 import qtable
 from numpy import copy
+from agent2 import Agent2
+from parameter import Parameter
+BLANK = Parameter.BLANK
+BLACK = Parameter.BLACK
+WHITE = Parameter.WHITE
 
-BLANK = 0  # 石が空：0
-BLACK = 1  # 石が黒：1
-WHITE = -1  # 石が白：2
+SIZE = Parameter.SIZE
+GAMMA = Parameter.GAMMA
+EPSILON = Parameter.EPSILON
+TEMPERATURE = Parameter.TEMPERATURE
 
-SIZE = 6
-GAMMA = 0.95  # 割引率
-EPSILON = 0.9
-TEMPERATURE = 0.01  # 温度定数初期値    上げると等確率　下げると強調　加算減算ではなく比で考えて調整するのがいいかも
-EPTEMPERATURE = 1
+WINREWORD = Parameter.WINREWORD
+LOSEREWORD = Parameter.LOSEREWORD
+DRAWREWORD = Parameter.DRAWREWORD
 
-WINREWORD = 1
-LOSEREWORD = -1 * WINREWORD
-DRAWREWORD = 0.01
-
-# PATH = os.path.abspath("..\\..\\qtables") + "/" + "table" + str(SIZE) + "/"
-PATH = "E:/qtables/" + "table" + str(SIZE) + "/"
-RAYER = int((SIZE * SIZE - 1) / 12)
-VALUERATE=0.55
+PATH = Parameter.PATH
+RAYER = Parameter.RAYER
+VALUERATE=Parameter.VALUERATE
 
 def maxreword(dict):
     m = list(dict.keys())[0]
@@ -58,7 +57,7 @@ def graph(di, le):
 
 class Agent:
     # 盤面の情報は、先手・後手(定数)、何手目(計算が簡単)、石値合計(np.sum(state))。打てる手数(ついでで使える)で分類して絞り込めるようにすることで計算時間を削減したい
-    def __init__(self, side, mode=0, env=None, tmp=TEMPERATURE, tmpupdate=False, qtable=qtable.Qtable(SIZE, path=PATH)):
+    def __init__(self, side, mode=0, env=None, tmp=TEMPERATURE, tmpupdate=False, qtable=qtable.Qtable()):
         self.mode = mode
         self.side = side
         self.log = []
@@ -121,21 +120,8 @@ class Agent:
                 q = [exp(i) for i in b]
         while 0 in q:
             q[q.index(0)] += 0.001
+        q=[i / max(q) for i in q]
         plist = np.array([qa / sum(q) for qa in q])
-        vlist = [self.qtable.getstatevalue(self.environment.statelist[k],self.side) for k in klist]
-        b = [a / self.temperature for a in vlist]
-        q = [exp(i) for i in b]
-        if float('inf') in q:
-            n = 1
-            while float('inf') in q:
-                n *= 10
-                b = [a / n for a in b]
-                q = [exp(i) for i in b]
-        while 0 in q:
-            q[q.index(0)]+=0.001
-        plist2 = np.array([qa / sum(q) for qa in q])
-        hi=VALUERATE
-        plist= plist*(1-hi)+plist2*hi
         m = klist[npchoice(list(range(len(klist))), p=plist)]
         return [int(m[1]), int(m[-2])]
     def stchoice(self,actlist):
@@ -249,8 +235,84 @@ def train(episode, qtb):
             agentb.save(DRAWREWORD)
         agentw.reset()
         agentb.reset()
-
-
+def trainb(episode, qtb):
+    env = environment.Environment(SIZE)
+    agentw = Agent2(side=WHITE,env=env)
+    agentb = Agent(side=BLACK, mode=1, env=env, qtable=qtb,tmp=0.001)
+    for count in range(episode):
+        env.reset()
+        while env.winner is None:
+            if env.side == WHITE:
+                env.action(agentw.action())
+            else:
+                env.action(agentb.action())
+        winner = env.winner
+        if winner == WHITE:
+            agentb.save(LOSEREWORD)
+        elif winner == BLACK:
+            agentb.save(WINREWORD)
+        else:
+            agentb.save(DRAWREWORD)
+        agentw.reset()
+        agentb.reset()
+def trainw(episode, qtb):
+    env = environment.Environment(SIZE)
+    agentw = Agent(side=WHITE, mode=1, env=env, qtable=qtb,tmp=0.001)
+    agentb = Agent2(side=BLACK, env=env)
+    for count in range(episode):
+        env.reset()
+        while env.winner is None:
+            if env.side == WHITE:
+                env.action(agentw.action())
+            else:
+                env.action(agentb.action())
+        winner = env.winner
+        if winner == WHITE:
+            agentw.save(WINREWORD)
+        elif winner == BLACK:
+            agentw.save(LOSEREWORD)
+        else:
+            agentw.save(DRAWREWORD)
+        agentw.reset()
+        agentb.reset()
+def train2(episode, qtb):
+    env = environment.Environment(SIZE)
+    agentw = Agent2(side=WHITE, env=env, qtable=qtb,issave=True)
+    agentb = Agent2(side=BLACK, env=env,isforeseeing=False,issave=True)
+    for count in range(episode):
+        env.reset()
+        while env.winner is None:
+            if env.side == WHITE:
+                env.action(agentw.action())
+            else:
+                env.action(agentb.action())
+        winner = env.winner
+        if winner == WHITE:
+            agentw.save(WINREWORD)
+        elif winner == BLACK:
+            agentw.save(LOSEREWORD)
+        else:
+            agentw.save(DRAWREWORD)
+        agentw.reset()
+        agentb.reset()
+    agentw = Agent2(side=BLACK, env=env, isforeseeing=False, issave=True)
+    agentb = Agent2(side=WHITE, env=env, qtable=qtb, issave=True)
+    for count in range(episode):
+        env.reset()
+        while env.winner is None:
+            if env.side == WHITE:
+                env.action(agentw.action())
+            else:
+                env.action(agentb.action())
+        winner = env.winner
+        if winner == WHITE:
+            agentw.save(WINREWORD)
+        elif winner == BLACK:
+            agentw.save(LOSEREWORD)
+        else:
+            agentw.save(DRAWREWORD)
+        agentw.reset()
+        agentb.reset()
 def test(whiteside, blackside, set):
     wwin = 0
     bwin = 0
@@ -260,11 +322,11 @@ def test(whiteside, blackside, set):
     if whiteside:
         agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
     else:
-        agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.8)
+        agentw = Agent2(side=WHITE,env=env)
     if blackside:
         agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
     else:
-        agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.8)
+        agentb = Agent2(side=BLACK, env=env)
     for count in range(set):
         env.reset()
         while env.winner is None:
@@ -349,15 +411,15 @@ def test3():
 
 def vsplayer(whiteside=False, blackside=False):
     env = environment.Environment(SIZE)
-
     def gui():
         root = tk.Tk()
         envgui.EnvGUI(env=env, master=root)
-
     thread1 = threading.Thread(target=gui)
     thread1.start()
     agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
     agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
+    #agentw = Agent2(side=WHITE,  env=env,isforeseeing=False)
+    #agentb = Agent2(side=BLACK, env=env,isforeseeing=False)
     while env.winner is None:
         if env.side == WHITE:
             if not whiteside:
@@ -365,7 +427,8 @@ def vsplayer(whiteside=False, blackside=False):
             else:
                 turn = env.turn
                 while not os.path.isfile(str(turn) + ".pkl"):
-                    pass
+                    time.sleep(0.001)
+                time.sleep(0.001)
                 with open(str(turn) + ".pkl", 'rb') as f:
                     data = pickle.load(f)
                 env.action(data)
@@ -376,7 +439,8 @@ def vsplayer(whiteside=False, blackside=False):
             else:
                 turn = env.turn
                 while not os.path.isfile(str(turn) + ".pkl"):
-                    pass
+                    time.sleep(0.001)
+                time.sleep(0.001)
                 with open(str(turn) + ".pkl", 'rb') as f:
                     data = pickle.load(f)
                 env.action(data)
@@ -392,16 +456,16 @@ def vsplayer(whiteside=False, blackside=False):
 
 
 def t():
-    qtb = qtable.Qtable(SIZE, save=True, path=PATH)
+    qtb = qtable.Qtable()
     logs = log.LOG(SIZE)
-    testset = 1
-    trainset = 1
+    testset = 100
+    trainset = 10000
     # _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     # logs.save(bwin / n, 0)
-    for i in range(1):
+    for i in range(5):
         s = time.perf_counter()
-        print("train...")
-        train(trainset, qtb)
+        print("training...")
+        train2(trainset, qtb)
         print("test...")
         _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
         e = time.perf_counter()
@@ -412,14 +476,34 @@ def t():
     logs.end()
     logs.show()
 
-
+def t2():
+    qtb = qtable.Qtable()
+    logs = log.LOG(SIZE)
+    testset = 1000
+    trainset = 1000
+    # _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
+    # logs.save(bwin / n, 0)
+    for i in range(1):
+        s = time.perf_counter()
+        print("training...")
+        trainb(trainset, qtb)
+        trainw(trainset, qtb)
+        print("test...")
+        _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
+        e = time.perf_counter()
+        print(e - s)
+        logs.save(bwin / n, trainset)
+    print("save")
+    # qtb.finalsave()
+    logs.end()
+    logs.show()
 if __name__ == "__main__":
-    # t()
+    t()
     #vsplayer(blackside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
-    #t()
-    test(whiteside=False, blackside=True, set=100)
+    #t2()
+    #test(whiteside=False, blackside=True, set=100)
     e = time.perf_counter()
     print(e - s)
     # plt.show()

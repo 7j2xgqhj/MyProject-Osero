@@ -1,9 +1,11 @@
 import os
 import pickle
 import shutil
-
+from parameter import Parameter
 import numpy as np
-
+SIZE=Parameter.SIZE
+PATH=Parameter.PATH
+CPATH=Parameter.CPATH
 TABLE4 = np.array([[0, 1, 1, 0],
                    [1, 2, 2, 1],
                    [1, 2, 2, 1],
@@ -33,15 +35,14 @@ def statetonum(state):
 
 
 class Qtable:
-    def __init__(self, size, save=False, path=None):
-        self.size = size
-        self.path = path
+    def __init__(self):
+        self.size = SIZE
+        self.path = PATH
         self.rayer = int((self.size ** 2 - 1) / 12)
         self.filelist = []
-        self.cpath = os.path.abspath("..\\..\\qcash") + "/table" + str(self.size) + "/"
-        self.save = save
-        if os.path.isfile(self.cpath + "table" + str(size) + ".pkl"):
-            with open(self.cpath + "table" + str(size) + ".pkl", 'rb') as f:
+        self.cpath = CPATH
+        if os.path.isfile(self.cpath + "table" + str(self.size) + ".pkl"):
+            with open(self.cpath + "table" + str(self.size) + ".pkl", 'rb') as f:
                 self.tdict = pickle.load(f)
         else:
             self.tdict = {}
@@ -53,7 +54,7 @@ class Qtable:
                 n = 10
             for i in range(n):
                 self.tdict[str(i)] = np.array([0, 0], dtype=np.float32)
-            with open(self.cpath + "table" + str(size) + ".pkl", 'wb') as f:
+            with open(self.cpath + "table" + str(self.size) + ".pkl", 'wb') as f:
                 pickle.dump(self.tdict, f)
         if self.size == 4:
             self.itable = TABLE4
@@ -94,17 +95,6 @@ class Qtable:
                         ac = [i[0], i[1]]
                         n = stl[i[0]][i[1]]
                         nl = list(zip(*np.where(state == n)))[0]
-                        if not str(ac) in data.keys():
-                            print(data)
-                            print(data.keys())
-                            print(ac)
-                            print(list(zip(*np.where(stl > 1))))
-                            print(a + fn + stn + ".pkl")
-                            print(os.path.isfile(self.cpath + a + fn + stn + ".pkl"))
-                            print(os.path.isfile(self.path + a + fn + stn + ".pkl"))
-                            print(state)
-                            print(x)
-                            print(stl)
                         di[str([nl[0], nl[1]])] = data[str(ac)]
                         li[str([nl[0], nl[1]])] = str(ac)
                     return di, [stn, li]
@@ -171,8 +161,8 @@ class Qtable:
 
     def show(self):
         print(self.tdict)
-        #arr = [[0] * self.size] * self.size
-        #for x in range(self.size):
+        # arr = [[0] * self.size] * self.size
+        # for x in range(self.size):
         #    for y in range(self.size):
         #        arr[x][y]=self.tdict[str(self.itable[x][y])][1]
-        #print(arr)
+        # print(arr)

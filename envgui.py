@@ -36,6 +36,8 @@ class EnvGUI(tk.Frame):
         self.updateStone()
         self.mainloop()
 
+
+
     def setStone(self, x, y, color: int):
         if color == BLANK:
             self.canvas.itemconfig(tagOrId=self.idlist[x][y], fill='green', outline='green')

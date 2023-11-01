@@ -71,7 +71,8 @@ class Environment:
             else:
                 self.state, self.isPassed = self.reversestones(act)[0], False
             self.turn += 1
-            self.turn_change(), self.makeactlist()
+            self.turn_change()
+            self.makeactlist()
             return True
         else:
             return False
