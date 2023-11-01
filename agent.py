@@ -237,7 +237,7 @@ def train(episode, qtb):
         agentb.reset()
 def trainb(episode, qtb):
     env = environment.Environment(SIZE)
-    agentw = Agent2(side=WHITE,env=env)
+    agentw = Agent2(side=BLACK, env=env,isforeseeing=False,issave=True)
     agentb = Agent(side=BLACK, mode=1, env=env, qtable=qtb,tmp=0.001)
     for count in range(episode):
         env.reset()
@@ -248,17 +248,20 @@ def trainb(episode, qtb):
                 env.action(agentb.action())
         winner = env.winner
         if winner == WHITE:
+            agentw.save(WINREWORD)
             agentb.save(LOSEREWORD)
         elif winner == BLACK:
+            agentw.save(LOSEREWORD)
             agentb.save(WINREWORD)
         else:
+            agentw.save(DRAWREWORD)
             agentb.save(DRAWREWORD)
         agentw.reset()
         agentb.reset()
 def trainw(episode, qtb):
     env = environment.Environment(SIZE)
     agentw = Agent(side=WHITE, mode=1, env=env, qtable=qtb,tmp=0.001)
-    agentb = Agent2(side=BLACK, env=env)
+    agentb = Agent2(side=BLACK, env=env,isforeseeing=False,issave=True)
     for count in range(episode):
         env.reset()
         while env.winner is None:
@@ -269,10 +272,13 @@ def trainw(episode, qtb):
         winner = env.winner
         if winner == WHITE:
             agentw.save(WINREWORD)
+            agentb.save(LOSEREWORD)
         elif winner == BLACK:
             agentw.save(LOSEREWORD)
+            agentb.save(WINREWORD)
         else:
             agentw.save(DRAWREWORD)
+            agentb.save(DRAWREWORD)
         agentw.reset()
         agentb.reset()
 def train2(episode, qtb):
@@ -289,10 +295,13 @@ def train2(episode, qtb):
         winner = env.winner
         if winner == WHITE:
             agentw.save(WINREWORD)
+            agentb.save(LOSEREWORD)
         elif winner == BLACK:
             agentw.save(LOSEREWORD)
+            agentb.save(WINREWORD)
         else:
             agentw.save(DRAWREWORD)
+            agentb.save(DRAWREWORD)
         agentw.reset()
         agentb.reset()
     agentw = Agent2(side=BLACK, env=env, isforeseeing=False, issave=True)
@@ -307,10 +316,13 @@ def train2(episode, qtb):
         winner = env.winner
         if winner == WHITE:
             agentw.save(WINREWORD)
+            agentb.save(LOSEREWORD)
         elif winner == BLACK:
             agentw.save(LOSEREWORD)
+            agentb.save(WINREWORD)
         else:
             agentw.save(DRAWREWORD)
+            agentb.save(DRAWREWORD)
         agentw.reset()
         agentb.reset()
 def test(whiteside, blackside, set):
@@ -322,11 +334,11 @@ def test(whiteside, blackside, set):
     if whiteside:
         agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
     else:
-        agentw = Agent2(side=WHITE,env=env)
+        agentw = Agent2(side=WHITE,env=env, isforeseeing=False)
     if blackside:
         agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
     else:
-        agentb = Agent2(side=BLACK, env=env)
+        agentb = Agent2(side=WHITE,env=env, isforeseeing=False)
     for count in range(set):
         env.reset()
         while env.winner is None:
@@ -458,7 +470,7 @@ def vsplayer(whiteside=False, blackside=False):
 def t():
     qtb = qtable.Qtable()
     logs = log.LOG(SIZE)
-    testset = 100
+    testset = 1000
     trainset = 10000
     # _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     # logs.save(bwin / n, 0)
@@ -480,10 +492,10 @@ def t2():
     qtb = qtable.Qtable()
     logs = log.LOG(SIZE)
     testset = 1000
-    trainset = 1000
+    trainset = 10000
     # _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     # logs.save(bwin / n, 0)
-    for i in range(1):
+    for i in range(5):
         s = time.perf_counter()
         print("training...")
         trainb(trainset, qtb)
@@ -502,7 +514,7 @@ if __name__ == "__main__":
     #vsplayer(blackside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
-    #t2()
+    t2()
     #test(whiteside=False, blackside=True, set=100)
     e = time.perf_counter()
     print(e - s)
