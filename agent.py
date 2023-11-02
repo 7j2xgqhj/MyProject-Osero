@@ -16,6 +16,8 @@ import qtable
 from numpy import copy
 from agent2 import Agent2
 from parameter import Parameter
+import commonfunc as cf
+
 BLANK = Parameter.BLANK
 BLACK = Parameter.BLACK
 WHITE = Parameter.WHITE
@@ -31,7 +33,8 @@ DRAWREWORD = Parameter.DRAWREWORD
 
 PATH = Parameter.PATH
 RAYER = Parameter.RAYER
-VALUERATE=Parameter.VALUERATE
+VALUERATE = Parameter.VALUERATE
+
 
 def maxreword(dict):
     m = list(dict.keys())[0]
@@ -70,6 +73,8 @@ class Agent:
         self.count = 0
         self.istmpupdate = tmpupdate
         self.qtable = qtable
+        self.priority_action = Parameter.priority_action
+        self.not_priority_action = Parameter.not_priority_action
         if side == BLACK:
             self.turn = 0
         elif side == WHITE:
@@ -87,8 +92,9 @@ class Agent:
         qr = ""
         self.epsilon -= 0.02
         if self.mode == 2 and self.istmpupdate:
-            value = self.valuecheck()
-            self.tmpupdate(value)
+            pass
+            # value = self.valuecheck()
+            # self.tmpupdate(value)
         if len(self.environment.actlist) == 1:  # 選択肢が一つしかないとき
             act = self.environment.actlist[0]
         elif self.mode == 1 and self.epsilon <= random():
@@ -101,7 +107,7 @@ class Agent:
                 # graph(statesetlist, len(self.environment.actlist))
                 act = self.softmaxchoice(dict=statesetlist)
             else:
-                act = self.stchoice(self.environment.actlist)
+                act = self.stchoice()
         if self.mode == 1 and len(act) != 0 and len(self.environment.actlist) > 1:
             self.log.append([self.turn, self.environment.actlist, act, qr, statesetlist, copy(self.environment.state)])
         self.turn += 2
@@ -110,90 +116,25 @@ class Agent:
     def softmaxchoice(self, dict):
         klist = list(dict.keys())
         vlist = [dict[k][1] for k in klist]
-        b = [a / self.temperature for a in vlist]
-        q = [exp(i) for i in b]
-        if float('inf') in q:
-            n = 1
-            while float('inf') in q:
-                n *= 10
-                b = [a / n for a in b]
-                q = [exp(i) for i in b]
-        while 0 in q:
-            q[q.index(0)] += 0.001
-        q=[i / max(q) for i in q]
-        plist = np.array([qa / sum(q) for qa in q])
+        plist = cf.probabilityfunc(vlist=vlist, tmp=self.temperature)
         m = klist[npchoice(list(range(len(klist))), p=plist)]
         return [int(m[1]), int(m[-2])]
-    def stchoice(self,actlist):
-        vlist = [self.qtable.getstatevalue(self.environment.statelist[str(k)], self.side) for k in actlist]
-        ind = vlist.index(max(vlist))
-        return actlist[ind]
-    def valuecheck(self):
-        statesetlist, _ = self.qtable.qtableread(self.environment.prestate, self.side * -1)
-        if statesetlist is not None:
-            klist = list(statesetlist.keys())
-            vlist = [statesetlist[k][1] for k in klist]
-            indx = klist.index(str(self.environment.preact))
-            q = [exp(a / self.temperature) for a in vlist]
-            plist = [qa / sum(q) for qa in q]
-            m = plist[npchoice(list(range(len(klist))), p=plist)]
-            if plist[indx] >= m:
-                return -1
-            else:
-                return 1
-        else:
-            if len(self.environment.prestate) != 0:
-                preactlist = self.environment.preactlist
-                if len(preactlist) > 1:
-                    vlist = self.environment.prediflist
-                    indx = preactlist.index(self.environment.preact)
-                    b = [a / self.temperature for a in vlist]
-                    q = [exp(i) for i in b]
-                    if float('inf') in q or 0 in q:
-                        n = 1
-                        while float('inf') in q:
-                            n *= 10
-                            b = [a / n for a in b]
-                            q = [exp(i) for i in b]
-                    plist = [qa / sum(q) for qa in q]
-                    print(plist)
-                    m = plist[npchoice(list(range(len(vlist))), p=plist)]
-                    if plist[indx] >= m:
-                        return -0.8
-                    else:
-                        return 0.8
-                else:
-                    return 0.2
-            return 0
 
-    def tmpupdate(self, value):
-        dbg = [value]
-        amp = 0.01
-        if self.turn < 5:
-            amp = 0
-            dbg.append("<5")
-        elif self.turn >= 5:
-            if self.turn < 5 + (SIZE ** 2 - 4) / 8:
-                amp *= 3
-                dbg.append("early")
-        if self.prevalue == value:
-            self.count += 1
-            if self.count > 3:
-                amp *= 2
-                dbg.append("count" + str(self.count) + ":" + str(value))
-        else:
-            self.count = 0
-        self.prevalue = value
-        if value > 0:
-            amp *= 2
-            dbg.append("plus")
-        print("tmp:" + str(self.temperature))
-        print("amp:" + str(amp))
-        print(dbg)
-        if self.temperature + (value * amp) <= 0:
-            self.temperature = 0.001
-        else:
-            self.temperature += value * amp
+    def stchoice(self):
+        score = []
+        for st in self.environment.statelist.values():
+            point = 0
+            s = cf.makeactivemass(state=st, side=self.side)
+            for i in self.not_priority_action:
+                if s[i[0]][i[1]] == 2:
+                    point += 1
+            for i in self.priority_action:
+                if s[i[0]][i[1]] == 2:
+                    point -= 6
+            score.append(point)
+        plist = cf.probabilityfunc(vlist=score, tmp=self.temperature)
+        m = self.environment.actlist[npchoice(list(range(len(self.environment.actlist))), p=plist)]
+        return m
 
     def save(self, reword):  # dict[ターン数][石値合計][選択肢の数]=[[state,{行動:[試行回数,行動価値] ...}],...]
         # step[0]:ターン数、step[1]:選択肢の配列、step[2]:選択した行動、step[3]:盤面num step[4]:dict
@@ -212,10 +153,7 @@ class Agent:
             self.qtable.tablesave(step[5], r, self.side)
 
 
-def train(episode, qtb):
-    env = environment.Environment(SIZE)
-    agentw = Agent(side=WHITE, mode=1, env=env, qtable=qtb,tmp=0.001)
-    agentb = Agent(side=BLACK, mode=1, env=env, qtable=qtb,tmp=0.001)
+def basictraining(env, agentw, agentb, episode):
     for count in range(episode):
         env.reset()
         while env.winner is None:
@@ -235,110 +173,11 @@ def train(episode, qtb):
             agentb.save(DRAWREWORD)
         agentw.reset()
         agentb.reset()
-def trainb(episode, qtb):
-    env = environment.Environment(SIZE)
-    agentw = Agent2(side=BLACK, env=env,isforeseeing=False,issave=True)
-    agentb = Agent(side=BLACK, mode=1, env=env, qtable=qtb,tmp=0.001)
-    for count in range(episode):
-        env.reset()
-        while env.winner is None:
-            if env.side == WHITE:
-                env.action(agentw.action())
-            else:
-                env.action(agentb.action())
-        winner = env.winner
-        if winner == WHITE:
-            agentw.save(WINREWORD)
-            agentb.save(LOSEREWORD)
-        elif winner == BLACK:
-            agentw.save(LOSEREWORD)
-            agentb.save(WINREWORD)
-        else:
-            agentw.save(DRAWREWORD)
-            agentb.save(DRAWREWORD)
-        agentw.reset()
-        agentb.reset()
-def trainw(episode, qtb):
-    env = environment.Environment(SIZE)
-    agentw = Agent(side=WHITE, mode=1, env=env, qtable=qtb,tmp=0.001)
-    agentb = Agent2(side=BLACK, env=env,isforeseeing=False,issave=True)
-    for count in range(episode):
-        env.reset()
-        while env.winner is None:
-            if env.side == WHITE:
-                env.action(agentw.action())
-            else:
-                env.action(agentb.action())
-        winner = env.winner
-        if winner == WHITE:
-            agentw.save(WINREWORD)
-            agentb.save(LOSEREWORD)
-        elif winner == BLACK:
-            agentw.save(LOSEREWORD)
-            agentb.save(WINREWORD)
-        else:
-            agentw.save(DRAWREWORD)
-            agentb.save(DRAWREWORD)
-        agentw.reset()
-        agentb.reset()
-def train2(episode, qtb):
-    env = environment.Environment(SIZE)
-    agentw = Agent2(side=WHITE, env=env, qtable=qtb,issave=True)
-    agentb = Agent2(side=BLACK, env=env,isforeseeing=False,issave=True)
-    for count in range(episode):
-        env.reset()
-        while env.winner is None:
-            if env.side == WHITE:
-                env.action(agentw.action())
-            else:
-                env.action(agentb.action())
-        winner = env.winner
-        if winner == WHITE:
-            agentw.save(WINREWORD)
-            agentb.save(LOSEREWORD)
-        elif winner == BLACK:
-            agentw.save(LOSEREWORD)
-            agentb.save(WINREWORD)
-        else:
-            agentw.save(DRAWREWORD)
-            agentb.save(DRAWREWORD)
-        agentw.reset()
-        agentb.reset()
-    agentw = Agent2(side=BLACK, env=env, isforeseeing=False, issave=True)
-    agentb = Agent2(side=WHITE, env=env, qtable=qtb, issave=True)
-    for count in range(episode):
-        env.reset()
-        while env.winner is None:
-            if env.side == WHITE:
-                env.action(agentw.action())
-            else:
-                env.action(agentb.action())
-        winner = env.winner
-        if winner == WHITE:
-            agentw.save(WINREWORD)
-            agentb.save(LOSEREWORD)
-        elif winner == BLACK:
-            agentw.save(LOSEREWORD)
-            agentb.save(WINREWORD)
-        else:
-            agentw.save(DRAWREWORD)
-            agentb.save(DRAWREWORD)
-        agentw.reset()
-        agentb.reset()
-def test(whiteside, blackside, set):
+def basictest(env,agentw,agentb,set):
     wwin = 0
     bwin = 0
     draw = 0
     n = 0
-    env = environment.Environment(SIZE)
-    if whiteside:
-        agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
-    else:
-        agentw = Agent2(side=WHITE,env=env, isforeseeing=False)
-    if blackside:
-        agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
-    else:
-        agentb = Agent2(side=WHITE,env=env, isforeseeing=False)
     for count in range(set):
         env.reset()
         while env.winner is None:
@@ -361,6 +200,50 @@ def test(whiteside, blackside, set):
     print("draw:" + str(draw) + "回")
     print("総試合数:" + str(n) + "回")
     return [wwin, bwin, draw, n]
+
+def train(episode, qtb):
+    env = environment.Environment(SIZE)
+    agentw = Agent(side=WHITE, mode=1, env=env, qtable=qtb, tmp=0.001)
+    agentb = Agent(side=BLACK, mode=1, env=env, qtable=qtb, tmp=0.001)
+    basictraining(env=env,agentb=agentb,agentw=agentw,episode=episode)
+
+
+def trainb(episode, qtb):
+    env = environment.Environment(SIZE)
+    agentw = Agent2(side=BLACK, env=env, isforeseeing=False, issave=True)
+    agentb = Agent(side=BLACK, mode=1, env=env, qtable=qtb, tmp=0.001)
+    basictraining(env=env,agentb=agentb,agentw=agentw,episode=episode)
+
+
+def trainw(episode, qtb):
+    env = environment.Environment(SIZE)
+    agentw = Agent(side=WHITE, mode=1, env=env, qtable=qtb, tmp=0.001)
+    agentb = Agent2(side=BLACK, env=env, isforeseeing=False, issave=True)
+    basictraining(env=env,agentb=agentb,agentw=agentw,episode=episode)
+
+
+def train2(episode, qtb):
+    env = environment.Environment(SIZE)
+    agentw = Agent2(side=WHITE, env=env, qtable=qtb, issave=True)
+    agentb = Agent2(side=BLACK, env=env, isforeseeing=False, issave=True)
+    basictraining(env=env,agentb=agentb,agentw=agentw,episode=episode)
+    agentw = Agent2(side=BLACK, env=env, isforeseeing=False, issave=True)
+    agentb = Agent2(side=WHITE, env=env, qtable=qtb, issave=True)
+    basictraining(env=env,agentb=agentb,agentw=agentw,episode=episode)
+
+
+def test(whiteside, blackside, set):
+    env = environment.Environment(SIZE)
+    tmp = 0.01
+    if whiteside:
+        agentw = Agent(side=WHITE, mode=2, env=env, tmp=tmp)
+    else:
+        agentw = Agent2(side=WHITE, env=env, isforeseeing=False)
+    if blackside:
+        agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp)
+    else:
+        agentb = Agent2(side=WHITE, env=env, isforeseeing=False)
+    return basictest(env=env,agentb=agentb,agentw=agentw,set=set)
 
 
 # 温度の推移見る用
@@ -423,15 +306,17 @@ def test3():
 
 def vsplayer(whiteside=False, blackside=False):
     env = environment.Environment(SIZE)
+
     def gui():
         root = tk.Tk()
         envgui.EnvGUI(env=env, master=root)
+
     thread1 = threading.Thread(target=gui)
     thread1.start()
-    agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
-    agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
-    #agentw = Agent2(side=WHITE,  env=env,isforeseeing=False)
-    #agentb = Agent2(side=BLACK, env=env,isforeseeing=False)
+    #agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
+    #agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
+    agentw = Agent2(side=WHITE,  env=env)
+    agentb = Agent2(side=BLACK, env=env)
     while env.winner is None:
         if env.side == WHITE:
             if not whiteside:
@@ -488,6 +373,7 @@ def t():
     logs.end()
     logs.show()
 
+
 def t2():
     qtb = qtable.Qtable()
     logs = log.LOG(SIZE)
@@ -509,13 +395,15 @@ def t2():
     # qtb.finalsave()
     logs.end()
     logs.show()
+
+
 if __name__ == "__main__":
-    t()
-    #vsplayer(blackside=True)
+    # t()
+    vsplayer(blackside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
-    t2()
-    #test(whiteside=False, blackside=True, set=100)
+    # t2()
+    # test(whiteside=False, blackside=True, set=100)
     e = time.perf_counter()
     print(e - s)
     # plt.show()

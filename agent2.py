@@ -1,8 +1,8 @@
 from numpy import copy
 from random import choice
 import numpy as np
-from numpy import add
 import qtable
+import commonfunc as cf
 from parameter import Parameter
 BLANK = Parameter.BLANK
 BLACK = Parameter.BLACK
@@ -32,11 +32,8 @@ class Agent2:
         self.issave=issave
         self.log=[]
         self.qtable = qtable
-        self.priority_action=[[0,0],[0,self.size-1],[self.size-1,0],[self.size-1,self.size-1]]
-        self.not_priority_action = [[1, 0], [1,0], [1,1],
-                                    [0,self.size - 2],[1,self.size - 1],[1,self.size - 2],
-                                    [self.size - 2,0],[self.size - 1,1],[self.size - 2,1],
-                                    [self.size - 2,self.size - 1],[self.size - 1,self.size - 2],[self.size - 2,self.size - 2]]
+        self.priority_action=Parameter.priority_action
+        self.not_priority_action =Parameter.not_priority_action
         if side == BLACK:
             self.turn = 0
         elif side == WHITE:
@@ -67,7 +64,7 @@ class Agent2:
             score=[]
             for st in self.environment.statelist.values():
                 point=0
-                s=self.makeactivemass(st)
+                s=cf.makeactivemass(state=st,side=self.side)
                 for i in self.not_priority_action:
                     if s[i[0]][i[1]]==2:
                         point+=1
@@ -90,45 +87,6 @@ class Agent2:
             if self.issave:
                 self.logmake(act)
             return act
-    def makeactivemass(self,state):
-        ind = []
-        st=copy(state)
-        for i in range(self.size):
-            for j in range(self.size):
-                if st[i][j] == BLANK:
-                    s, dif = self.reversestones([i, j],st)
-                    if dif != 0:
-                        ind.append([i, j])
-        for i in ind:
-            st[i[0]][i[1]] = 2
-        return st
-
-    def reversestones(self, index,instate):  # 引数に座標、出力は変化後の盤面orダメだったらfalse
-        side =self.side*-1
-        arrayclone = copy(instate)  # 参照渡し対策　必須
-        for i in [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]]:
-            localindex, directon, returnstonelist, isdifferentcoloredstone = np.array(index,
-                                                                                      dtype=np.int8), i, [], False
-            localindex = add(localindex, directon)  # 各方向にひとつづつ進める
-            while np.all(localindex >= 0) and np.all(localindex < self.size):
-                if arrayclone[localindex[0]][localindex[1]] != BLACK and arrayclone[localindex[0]][
-                    localindex[1]] != WHITE:
-                    break
-                elif arrayclone[localindex[0]][localindex[1]] == -1 * side:  # 異なる色の石がある
-                    isdifferentcoloredstone = True
-                    returnstonelist.append(copy(localindex))
-                elif isdifferentcoloredstone:  # ↑の状態を経た後かつ同じ色の石がある ひっくり返せる
-
-                    for num in returnstonelist:
-                        arrayclone[num[0]][num[1]] = side
-                    break
-                else:  # 上以外(同じ色しかない)
-                    break
-                localindex = add(localindex, directon)  # 各方向にひとつづつ進める
-
-        difference = abs(np.sum(np.copy(instate) - arrayclone))
-        arrayclone[index[0]][index[1]] = side
-        return arrayclone, difference
     def logmake(self,act):
         statesetlist, qr = self.qtable.qtableread(self.environment.state, self.side)
         self.log.append([self.turn, self.environment.actlist, act, qr, statesetlist, copy(self.environment.state)])

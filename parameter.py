@@ -40,3 +40,9 @@ class Parameter(metaclass=ConstantMeta):
     #よく変更するものの影響をうけるもの
     CPATH = os.path.abspath("..\\..\\qcash") + "/table" + str(SIZE) + "/"
     RAYER = int((SIZE * SIZE - 1) / 12)
+    priority_action=[[0,0],[0,SIZE-1],[SIZE-1,0],[SIZE-1,SIZE-1]]
+    not_priority_action = [[1, 0], [1, 0], [1, 1],
+                           [0, SIZE - 2], [1, SIZE - 1], [1, SIZE - 2],
+                           [SIZE - 2, 0], [SIZE - 1, 1], [SIZE - 2, 1],
+                           [SIZE - 2, SIZE - 1], [SIZE - 1, SIZE - 2],
+                           [SIZE - 2, SIZE - 2]]

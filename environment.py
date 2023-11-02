@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import add
 from numpy import copy
-
+import commonfunc as cf
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
@@ -43,7 +43,7 @@ class Environment:
         for i in range(self.size):
             for j in range(self.size):
                 if self.state[i][j] == BLANK:
-                    s, dif = self.reversestones([i, j])
+                    s, dif = cf.reversestones(index=[i, j],side=self.side,instate=self.state)
                     if dif != 0:
                         ind.append([[i, j], n])
                         stli[str([i,j])]=s
@@ -69,7 +69,7 @@ class Environment:
                 else:
                     self.isPassed = True
             else:
-                self.state, self.isPassed = self.reversestones(act)[0], False
+                self.state, self.isPassed = cf.reversestones(index=act,side=self.side,instate=self.state)[0], False
             self.turn += 1
             self.turn_change()
             self.makeactlist()
@@ -87,29 +87,3 @@ class Environment:
                 self.winner = WHITE
             elif black == w:
                 self.winner = BLACK
-
-    def reversestones(self, index):  # 引数に座標、出力は変化後の盤面orダメだったらfalse
-        arrayclone = copy(self.state)  # 参照渡し対策　必須
-        for i in [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]]:
-            localindex, directon, returnstonelist, isdifferentcoloredstone = np.array(index,
-                                                                                      dtype=np.int8), i, [], False
-            localindex = add(localindex, directon)  # 各方向にひとつづつ進める
-            while np.all(localindex >= 0) and np.all(localindex < self.size):
-                if arrayclone[localindex[0]][localindex[1]] != BLACK and arrayclone[localindex[0]][
-                    localindex[1]] != WHITE:
-                    break
-                elif arrayclone[localindex[0]][localindex[1]] == -1 * self.side:  # 異なる色の石がある
-                    isdifferentcoloredstone = True
-                    returnstonelist.append(copy(localindex))
-                elif isdifferentcoloredstone:  # ↑の状態を経た後かつ同じ色の石がある ひっくり返せる
-
-                    for num in returnstonelist:
-                        arrayclone[num[0]][num[1]] = self.side
-                    break
-                else:  # 上以外(同じ色しかない)
-                    break
-                localindex = add(localindex, directon)  # 各方向にひとつづつ進める
-
-        difference = abs(np.sum(np.copy(self.state) - arrayclone))
-        arrayclone[index[0]][index[1]] = self.side
-        return arrayclone, difference
