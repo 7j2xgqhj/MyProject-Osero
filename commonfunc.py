@@ -10,7 +10,6 @@ WHITE = Parameter.WHITE
 
 
 def reversestones(side, index, instate):  # 引数に座標、出力は変化後の盤面orダメだったらfalse
-    side = side * -1
     arrayclone = copy(instate)  # 参照渡し対策　必須
     for i in [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]]:
         localindex, directon, returnstonelist, isdifferentcoloredstone = np.array(index,

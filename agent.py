@@ -124,7 +124,7 @@ class Agent:
         score = []
         for st in self.environment.statelist.values():
             point = 0
-            s = cf.makeactivemass(state=st, side=self.side)
+            s = cf.makeactivemass(state=st, side=self.side*-1)
             for i in self.not_priority_action:
                 if s[i[0]][i[1]] == 2:
                     point += 1
@@ -234,15 +234,15 @@ def train2(episode, qtb):
 
 def test(whiteside, blackside, set):
     env = environment.Environment(SIZE)
-    tmp = 0.01
+    tmp = 0.001
     if whiteside:
         agentw = Agent(side=WHITE, mode=2, env=env, tmp=tmp)
     else:
-        agentw = Agent2(side=WHITE, env=env, isforeseeing=False)
+        agentw = Agent2(side=WHITE, env=env)
     if blackside:
         agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp)
     else:
-        agentb = Agent2(side=WHITE, env=env, isforeseeing=False)
+        agentb = Agent2(side=WHITE, env=env)
     return basictest(env=env,agentb=agentb,agentw=agentw,set=set)
 
 
@@ -283,14 +283,15 @@ def test2(env=None, agentw=None, agentb=None, istmp=False):
 def test3():
     x, y = [], []
     env = environment.Environment(SIZE)
-    for tmp in range(1, 700):
+    for tmp in range(1, 60):
         bwin = 0
-        agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp * 0.001)
+        agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp * 0.01)
+        agentw = Agent2(side=WHITE, env=env, isforeseeing=False)
         for count in range(1000):
             env.reset()
             while env.winner is None:
                 if env.side == WHITE:
-                    env.action(choice(env.actlist))
+                    env.action(agentw.action())
                 else:
                     env.action(agentb.action())
             winner = env.winner
@@ -306,17 +307,17 @@ def test3():
 
 def vsplayer(whiteside=False, blackside=False):
     env = environment.Environment(SIZE)
-
+    print(env.side)
     def gui():
         root = tk.Tk()
         envgui.EnvGUI(env=env, master=root)
 
     thread1 = threading.Thread(target=gui)
     thread1.start()
-    #agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
-    #agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
-    agentw = Agent2(side=WHITE,  env=env)
-    agentb = Agent2(side=BLACK, env=env)
+    agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
+    agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
+    #agentw = Agent2(side=WHITE,  env=env)
+    #agentb = Agent2(side=BLACK, env=env)
     while env.winner is None:
         if env.side == WHITE:
             if not whiteside:
@@ -399,11 +400,12 @@ def t2():
 
 if __name__ == "__main__":
     # t()
-    vsplayer(blackside=True)
+    #vsplayer(blackside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
     # t2()
-    # test(whiteside=False, blackside=True, set=100)
+    #test3()
+    test(whiteside=False, blackside=True, set=1000)
     e = time.perf_counter()
     print(e - s)
     # plt.show()

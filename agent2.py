@@ -64,7 +64,7 @@ class Agent2:
             score=[]
             for st in self.environment.statelist.values():
                 point=0
-                s=cf.makeactivemass(state=st,side=self.side)
+                s=cf.makeactivemass(state=st,side=self.side*-1)
                 for i in self.not_priority_action:
                     if s[i[0]][i[1]]==2:
                         point+=1
@@ -73,6 +73,7 @@ class Agent2:
                         point-=12
                 score.append(point)
             if np.all(np.array(score)==score[0]):
+
                 act=choice(self.environment.actlist)
                 if self.issave:
                     self.logmake(act)

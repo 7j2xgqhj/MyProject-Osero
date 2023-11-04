@@ -30,6 +30,8 @@ def qtableread(filename: str, side: int):
     except:
         print(filename)
 
-print(Parameter.EPSILON)
 
+with open("log6.pkl", 'rb') as f:
+    data = pickle.load(f)
+print(data)
 
