@@ -30,8 +30,11 @@ def qtableread(filename: str, side: int):
     except:
         print(filename)
 
-
-with open("log6.pkl", 'rb') as f:
-    data = pickle.load(f)
-print(data)
+a=["a","b"]
+b=[1,2]
+c=[0,0]
+for i,j,v in zip(a,b,c):
+    print(i)
+    print(j)
+    print(v)
 

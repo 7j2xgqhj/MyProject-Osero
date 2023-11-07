@@ -29,6 +29,7 @@ class Environment:
         self.stateinit()
         self.side, self.winner, self.isPassed, self.turn,  self.prestate, self.preact,self.actlist,self.preactlist,self.statelist,self.prestatelist \
             = BLACK, None, False, 0, [], [],[],[],{},{}
+        self.log={str(BLACK):[],str(WHITE):[]}
         self.makeactlist()
 
     def turn_change(self):
@@ -63,6 +64,8 @@ class Environment:
     def action(self, act):
         if act in self.actlist:
             self.preact, self.prestate,self.preactlist,self.prestatelist = act, copy(self.state),copy(self.actlist).tolist(),self.statelist
+            if len(self.actlist)>1:
+                self.log[str(self.side)].append([act,copy(self.state)])
             if len(act) == 0:
                 if self.isPassed:
                     self.decidewinner()

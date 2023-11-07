@@ -5,7 +5,6 @@ import environment
 from random import choice
 from random import random
 from numpy.random import choice as npchoice
-from numpy import exp
 import pickle
 import os
 import log
@@ -92,9 +91,9 @@ class Agent:
         qr = ""
         self.epsilon -= 0.02
         if self.mode == 2 and self.istmpupdate:
-            pass
-            # value = self.valuecheck()
-            # self.tmpupdate(value)
+            el=self.environment.log[str(self.side*-1)]
+            if len(el)>7:
+                self.tmpestimate(el[len(el)-1-7:len(el)])
         if len(self.environment.actlist) == 1:  # 選択肢が一つしかないとき
             act = self.environment.actlist[0]
         elif self.mode == 1 and self.epsilon <= random():
@@ -112,7 +111,75 @@ class Agent:
             self.log.append([self.turn, self.environment.actlist, act, qr, statesetlist, copy(self.environment.state)])
         self.turn += 2
         return act
+    def tmpestimate(self,el):
+        tmp=[0.001,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
+        klists=[]
+        vlists=[]
+        alist=[]
+        for l in el:
+            alist.append(str(l[0]))
+            qt=self.qtable.qtableread(l[1], self.side*-1)[0]
+            if qt is None:
+                stli = {}
+                state = np.where(l[1] > 1, 0, l[1])
+                for i in range(SIZE):
+                    for j in range(SIZE):
+                        if state[i][j] == BLANK:
+                            s, dif = cf.reversestones(index=[i, j], side=self.side*-1, instate=state)
+                            if dif != 0:
+                                stli[str([i, j])] = s
+                score = []
+                for st in stli.values():
+                    point = 0
+                    s = cf.makeactivemass(state=st, side=self.side)
+                    for i in self.not_priority_action:
+                        if s[i[0]][i[1]] == 2:
+                            point += 1
+                    for i in self.priority_action:
+                        if s[i[0]][i[1]] == 2:
+                            point -= 6
+                    score.append(point)
+                klists.append(list(stli.keys()))
+                vlists.append(score)
+            else:
+                klists.append(list(qt.keys()))
+                vlists.append([qt[k][1] for k in list(qt.keys())])
+        tmpplist=[]
+        for i, x in enumerate(tmp):
+            li = []
+            for klist,vlist in zip(klists,vlists):
+                plist = cf.probabilityfunc(vlist=vlist, tmp=x)
+                li.append(plist)
+            matchcount=0
+            for count in range(1000):
+                pact=[]
+                for l,k in zip(li,klists):
+                    pact.append(k[npchoice(list(range(len(k))), p=l)])
+                n=0
+                for al,pa in zip(alist,pact):
+                    if al==pa:
+                        n+=1
+                matchcount+=n/len(alist)
+            tmpplist.append(matchcount)
 
+
+
+        print("sum")
+        print(tmpplist)
+        t1=tmp[tmpplist.index(max(tmpplist))]
+        t2=tmp[tmpplist.index(sorted(tmpplist)[-2])]
+        print(t1)
+        print(t2)
+
+
+
+
+
+
+
+
+
+        #self.qtable.qtableread(i[1], self.side)[0]
     def softmaxchoice(self, dict):
         klist = list(dict.keys())
         vlist = [dict[k][1] for k in klist]
@@ -252,7 +319,7 @@ def test2(env=None, agentw=None, agentb=None, istmp=False):
     if env is None:
         env = environment.Environment(SIZE)
     if agentw is None:
-        agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.15)
+        agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.1)
     if agentb is None:
         agentb = Agent(side=BLACK, mode=2, env=env, tmpupdate=True)
     env.reset()
@@ -405,11 +472,11 @@ if __name__ == "__main__":
     s = time.perf_counter()
     # t2()
     #test3()
-    test(whiteside=False, blackside=True, set=1000)
+    #test(whiteside=False, blackside=True, set=1000)
     e = time.perf_counter()
     print(e - s)
     # plt.show()
     # 一試合での温度推移確認
-    # test2(istmp=True)
+    test2()
     # 温度による勝率推移確認
     # test3()

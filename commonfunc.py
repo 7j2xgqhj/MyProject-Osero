@@ -62,3 +62,13 @@ def probabilityfunc(vlist, tmp):
         q[q.index(0)] += 0.001
     q = [i / max(q) for i in q]
     return np.array([qa / sum(q) for qa in q])
+
+def foreseeingfunc(side,instate):
+    stli = {}
+    state = np.where(instate > 1, 0, instate)
+    for i in range(SIZE):
+        for j in range(SIZE):
+            if state[i][j] == BLANK:
+                s, dif = reversestones(index=[i, j], side=side * -1, instate=state)
+                if dif != 0:
+                    stli[str([i, j])] = s
