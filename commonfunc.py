@@ -7,7 +7,8 @@ SIZE = Parameter.SIZE
 BLANK = Parameter.BLANK
 BLACK = Parameter.BLACK
 WHITE = Parameter.WHITE
-
+priority_action=Parameter.priority_action
+not_priority_action =Parameter.not_priority_action
 
 def reversestones(side, index, instate):  # 引数に座標、出力は変化後の盤面orダメだったらfalse
     arrayclone = copy(instate)  # 参照渡し対策　必須
@@ -63,12 +64,15 @@ def probabilityfunc(vlist, tmp):
     q = [i / max(q) for i in q]
     return np.array([qa / sum(q) for qa in q])
 
-def foreseeingfunc(side,instate):
-    stli = {}
-    state = np.where(instate > 1, 0, instate)
-    for i in range(SIZE):
-        for j in range(SIZE):
-            if state[i][j] == BLANK:
-                s, dif = reversestones(index=[i, j], side=side * -1, instate=state)
-                if dif != 0:
-                    stli[str([i, j])] = s
+def foreseeingfunc(side,instate,actlist):
+    score = []
+    for act in actlist:
+        st, _ = reversestones(index=act, side=side, instate=instate)
+        s=makeactivemass(state=st,side=side*-1)
+        score.append(-1 * np.count_nonzero(s == 2))
+    return score
+def foreseeingfunc_ver1(side,instate,actlist):
+    for a in priority_action:
+        if a in actlist:
+            return a
+

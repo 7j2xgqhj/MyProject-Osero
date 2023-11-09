@@ -188,17 +188,7 @@ class Agent:
         return [int(m[1]), int(m[-2])]
 
     def stchoice(self):
-        score = []
-        for st in self.environment.statelist.values():
-            point = 0
-            s = cf.makeactivemass(state=st, side=self.side*-1)
-            for i in self.not_priority_action:
-                if s[i[0]][i[1]] == 2:
-                    point += 1
-            for i in self.priority_action:
-                if s[i[0]][i[1]] == 2:
-                    point -= 6
-            score.append(point)
+        score=cf.foreseeingfunc(self.side,self.environment.state,self.environment.actlist)
         plist = cf.probabilityfunc(vlist=score, tmp=self.temperature)
         m = self.environment.actlist[npchoice(list(range(len(self.environment.actlist))), p=plist)]
         return m
@@ -319,7 +309,7 @@ def test2(env=None, agentw=None, agentb=None, istmp=False):
     if env is None:
         env = environment.Environment(SIZE)
     if agentw is None:
-        agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.1)
+        agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.5)
     if agentb is None:
         agentb = Agent(side=BLACK, mode=2, env=env, tmpupdate=True)
     env.reset()
