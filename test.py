@@ -5,8 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import environment
+import parameter
 import qtable
 from parameter import Parameter
+import commonfunc as cf
+
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
@@ -30,11 +33,9 @@ def qtableread(filename: str, side: int):
     except:
         print(filename)
 
-a=["a","b"]
-b=[1,2]
-c=[0,0]
-for i,j,v in zip(a,b,c):
-    print(i)
-    print(j)
-    print(v)
+
+with open(parameter.Parameter.CPATH+ "table8.pkl", 'rb') as f:
+    data = pickle.load(f)
+print(data)
+
 

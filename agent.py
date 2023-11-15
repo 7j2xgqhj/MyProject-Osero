@@ -188,13 +188,16 @@ class Agent:
         return [int(m[1]), int(m[-2])]
 
     def stchoice(self):
-        score=cf.foreseeingfunc(self.side,self.environment.state,self.environment.actlist)
+        score = []
+        for act in self.environment.actlist:
+            st, _ = cf.reversestones(index=act, side=self.side, instate=self.environment.state)
+            score.append(-1 * self.qtable.getstatevalue(st,self.side*-1))
         plist = cf.probabilityfunc(vlist=score, tmp=self.temperature)
         m = self.environment.actlist[npchoice(list(range(len(self.environment.actlist))), p=plist)]
         return m
 
     def save(self, reword):  # dict[ターン数][石値合計][選択肢の数]=[[state,{行動:[試行回数,行動価値] ...}],...]
-        # step[0]:ターン数、step[1]:選択肢の配列、step[2]:選択した行動、step[3]:盤面num step[4]:dict
+        # [self.turn, self.environment.actlist, act, qr, statesetlist, copy(self.environment.state)]
         for t, step in enumerate(self.log):
             r = reword * self.gamma ** (len(self.log) - (t + 1))
             if step[4] is not None:
@@ -299,7 +302,7 @@ def test(whiteside, blackside, set):
     if blackside:
         agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp)
     else:
-        agentb = Agent2(side=WHITE, env=env)
+        agentb = Agent2(side=BLACK, env=env)
     return basictest(env=env,agentb=agentb,agentw=agentw,set=set)
 
 
@@ -373,8 +376,8 @@ def vsplayer(whiteside=False, blackside=False):
     thread1.start()
     agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
     agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
-    #agentw = Agent2(side=WHITE,  env=env)
-    #agentb = Agent2(side=BLACK, env=env)
+    #agentw = Agent2(side=WHITE,  env=env,isforeseeing=False)
+    #agentb = Agent2(side=BLACK, env=env,isforeseeing=False)
     while env.winner is None:
         if env.side == WHITE:
             if not whiteside:
@@ -413,7 +416,7 @@ def vsplayer(whiteside=False, blackside=False):
 def t():
     qtb = qtable.Qtable()
     logs = log.LOG(SIZE)
-    testset = 1000
+    testset = 100
     trainset = 10000
     # _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     # logs.save(bwin / n, 0)
@@ -429,13 +432,13 @@ def t():
     print("save")
     # qtb.finalsave()
     logs.end()
-    logs.show()
+
 
 
 def t2():
     qtb = qtable.Qtable()
     logs = log.LOG(SIZE)
-    testset = 1000
+    testset = 100
     trainset = 10000
     # _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     # logs.save(bwin / n, 0)
@@ -452,21 +455,20 @@ def t2():
     print("save")
     # qtb.finalsave()
     logs.end()
-    logs.show()
-
 
 if __name__ == "__main__":
-    # t()
+
     #vsplayer(blackside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
-    # t2()
+    t()
+    t2()
     #test3()
-    #test(whiteside=False, blackside=True, set=1000)
+    #test(whiteside=False, blackside=True, set=10)
     e = time.perf_counter()
     print(e - s)
     # plt.show()
     # 一試合での温度推移確認
-    test2()
+    #test2()
     # 温度による勝率推移確認
     # test3()

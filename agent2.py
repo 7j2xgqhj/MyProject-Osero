@@ -47,47 +47,14 @@ class Agent2:
     def action(self):
         if len(self.environment.actlist) <= 1:
             return self.environment.actlist[0]
-        for a in self.priority_action:
-            if a in self.environment.actlist:
-                act=a
-                if self.issave:
-                    self.logmake(act)
-                return act
-        l=copy(self.environment.actlist).tolist()
-        al=list(filter(lambda x: x not in self.not_priority_action, l))
-        if len(al)>0 and not self.isforeseeing:
-            act = choice(al)
-            if self.issave:
-                self.logmake(act)
-            return act
-        elif len(al)>0 and self.isforeseeing:
-            score=[]
-            for st in self.environment.statelist.values():
-                point=0
-                s=cf.makeactivemass(state=st,side=self.side*-1)
-                for i in self.not_priority_action:
-                    if s[i[0]][i[1]]==2:
-                        point+=1
-                for i in self.priority_action:
-                    if s[i[0]][i[1]]==2:
-                        point-=12
-                score.append(point)
-            if np.all(np.array(score)==score[0]):
-
-                act=choice(self.environment.actlist)
-                if self.issave:
-                    self.logmake(act)
-                return act
-            else:
-                act=self.environment.actlist[score.index(max(score))]
-                if self.issave:
-                    self.logmake(act)
-                return act
+        if self.isforeseeing:
+            act = cf.foreseeingfunc_ver2(self.side, self.environment.state, self.environment.actlist)
         else:
-            act=choice(self.environment.actlist)
-            if self.issave:
-                self.logmake(act)
-            return act
+            #act=cf.foreseeingfunc_ver2(self.side,self.environment.state,self.environment.actlist)
+            act=cf.foreseeingfunc_ver1(self.environment.actlist)
+        if self.issave:
+            self.logmake(act)
+        return act
     def logmake(self,act):
         statesetlist, qr = self.qtable.qtableread(self.environment.state, self.side)
         self.log.append([self.turn, self.environment.actlist, act, qr, statesetlist, copy(self.environment.state)])

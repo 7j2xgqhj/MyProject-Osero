@@ -3,27 +3,13 @@ import pickle
 import shutil
 from parameter import Parameter
 import numpy as np
-SIZE=Parameter.SIZE
-PATH=Parameter.PATH
-CPATH=Parameter.CPATH
-TABLE4 = np.array([[0, 1, 1, 0],
-                   [1, 2, 2, 1],
-                   [1, 2, 2, 1],
-                   [0, 1, 1, 0]])
-TABLE6 = np.array([[0, 1, 2, 2, 1, 0],
-                   [1, 3, 4, 4, 3, 1],
-                   [2, 4, 5, 5, 4, 2],
-                   [2, 4, 5, 5, 4, 2],
-                   [1, 3, 4, 4, 3, 1],
-                   [0, 1, 2, 2, 1, 0]])
-TABLE8 = np.array([[0, 1, 2, 3, 3, 2, 1, 0],
-                   [1, 4, 5, 7, 7, 5, 4, 1],
-                   [2, 5, 6, 8, 8, 6, 5, 2],
-                   [3, 7, 8, 9, 9, 8, 7, 3],
-                   [3, 7, 8, 9, 9, 8, 7, 3],
-                   [2, 5, 6, 8, 8, 6, 5, 2],
-                   [1, 4, 5, 7, 7, 5, 4, 1],
-                   [0, 1, 2, 3, 3, 2, 1, 0]])
+import commonfunc as cf
+from collections import defaultdict
+
+SIZE = Parameter.SIZE
+PATH = Parameter.PATH
+CPATH = Parameter.CPATH
+patternmatch = Parameter.patternmatch
 
 
 def statetonum(state):
@@ -41,27 +27,7 @@ class Qtable:
         self.rayer = int((self.size ** 2 - 1) / 12)
         self.filelist = []
         self.cpath = CPATH
-        if os.path.isfile(self.cpath + "table" + str(self.size) + ".pkl"):
-            with open(self.cpath + "table" + str(self.size) + ".pkl", 'rb') as f:
-                self.tdict = pickle.load(f)
-        else:
-            self.tdict = {}
-            if self.size == 4:
-                n = 3
-            elif self.size == 6:
-                n = 6
-            else:
-                n = 10
-            for i in range(n):
-                self.tdict[str(i)] = np.array([0, 0], dtype=np.float32)
-            with open(self.cpath + "table" + str(self.size) + ".pkl", 'wb') as f:
-                pickle.dump(self.tdict, f)
-        if self.size == 4:
-            self.itable = TABLE4
-        elif self.size == 6:
-            self.itable = TABLE6
-        else:
-            self.itable = TABLE8
+        self.tpath=CPATH+"tdict/"
 
     def qtableread(self, state, side: int):
         st = np.where(state > 2, 2, state)
@@ -139,30 +105,47 @@ class Qtable:
                 shutil.move(self.cpath + fn[1] + "".join(fl) + fn[0] + ".pkl",
                             self.path + fn[1] + "".join(fl) + fn[0] + ".pkl")
 
+    def setsave(self, state, r, side):
+        stn = statetonum(state)
+        fn="".join([stn[12 * i:12 * (i + 1)] + "/" for i in range(self.rayer)])
+        if os.path.isfile(self.tpath + fn + stn + ".pkl"):
+            with open(self.tpath + fn + stn + ".pkl","rb") as f:
+                data = pickle.load(f)
+            data[str(side)]+=[1, (r - data[str(side)][1]) / (data[str(side)][0] + 1)]
+            with open(self.tpath + fn + stn + ".pkl", "wb") as f:
+                pickle.dump(data, f)
+        else:
+            fl = [stn[12 * i:12 * (i + 1)] + "/" for i in range(self.rayer)]
+            s = ""
+            for l in fl:
+                s += l
+                if not os.path.isdir(self.tpath + s):
+                    os.mkdir(self.tpath + s)
+            data={"1":np.array([0, 0], dtype=np.float32),"-1":np.array([0, 0], dtype=np.float32)}
+            data[str(side)] += [1, (r - data[str(side)][1]) / (data[str(side)][0] + 1)]
+            with open(self.tpath + s + stn + ".pkl", 'wb') as f:
+                pickle.dump(data, f)
+
     def tablesave(self, state, r, side):
-        for x in range(self.size):
-            for y in range(self.size):
-                rm = state[x][y] * side * r
-                q = self.tdict[str(self.itable[x][y])]
-                q += [1, (rm - q[1]) / (q[0] + 1)]
-        with open(self.cpath + "table" + str(self.size) + ".pkl", 'wb') as f:
-            pickle.dump(self.tdict, f)
+        st = np.where(state >= 2, 0, state)
+        for p in patternmatch:
+            for i in range(4):
+                instate = st * np.rot90(p, i)
+                self.setsave(np.rot90(instate, -i), r, side)
 
     def getstatevalue(self, state, side):
+        st = np.where(state >= 2, 0, state)
         sm = 0
-        for x in range(self.size):
-            for y in range(self.size):
-                if state[x][y] != 1 and state[x][y] != -1:
-                    n = 0
+        for p in patternmatch:
+            for i in range(4):
+                instate = st * np.rot90(p, i)
+                stn = statetonum(np.rot90(instate, -i))
+                fn = "".join([stn[12 * i:12 * (i + 1)] + "/" for i in range(self.rayer)])
+                if os.path.isfile(self.tpath + fn + stn + ".pkl"):
+                    with open(self.tpath + fn + stn + ".pkl", "rb") as f:
+                        data = pickle.load(f)
+                    n=data[str(side)][1]
                 else:
-                    n = state[x][y] * side
-                sm += n * self.tdict[str(self.itable[x][y])][1]
+                    n=0
+                sm += n
         return sm
-
-    def show(self):
-        print(self.tdict)
-        # arr = [[0] * self.size] * self.size
-        # for x in range(self.size):
-        #    for y in range(self.size):
-        #        arr[x][y]=self.tdict[str(self.itable[x][y])][1]
-        # print(arr)

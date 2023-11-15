@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 from numpy import copy
 from parameter import Parameter
@@ -7,8 +9,9 @@ SIZE = Parameter.SIZE
 BLANK = Parameter.BLANK
 BLACK = Parameter.BLACK
 WHITE = Parameter.WHITE
-priority_action=Parameter.priority_action
-not_priority_action =Parameter.not_priority_action
+priority_action = Parameter.priority_action
+not_priority_action = Parameter.not_priority_action
+
 
 def reversestones(side, index, instate):  # 引数に座標、出力は変化後の盤面orダメだったらfalse
     arrayclone = copy(instate)  # 参照渡し対策　必須
@@ -41,13 +44,19 @@ def makeactivemass(state, side):
     st = copy(state)
     for i in range(SIZE):
         for j in range(SIZE):
-            if st[i][j] == BLANK:
+            if st[i][j] == BLANK or st[i][j] > 1:
                 s, dif = reversestones(side, [i, j], st)
                 if dif != 0:
                     ind.append([i, j])
     for i in ind:
         st[i[0]][i[1]] = 2
     return st
+
+
+def staterating(state, side):
+    st = copy(state)
+    s = makeactivemass(st, side)
+    return -1 * np.count_nonzero(s == 2)
 
 
 def probabilityfunc(vlist, tmp):
@@ -64,15 +73,80 @@ def probabilityfunc(vlist, tmp):
     q = [i / max(q) for i in q]
     return np.array([qa / sum(q) for qa in q])
 
-def foreseeingfunc(side,instate,actlist):
+
+def foreseeingfunc(side, instate, actlist):
     score = []
     for act in actlist:
         st, _ = reversestones(index=act, side=side, instate=instate)
-        s=makeactivemass(state=st,side=side*-1)
-        score.append(-1 * np.count_nonzero(s == 2))
+        score.append(-1*staterating(st, side * -1))
     return score
-def foreseeingfunc_ver1(side,instate,actlist):
+
+
+def foreseeingfunc_ver1(actlist):
     for a in priority_action:
         if a in actlist:
             return a
+    l = copy(actlist).tolist()
+    al = list(filter(lambda x: x not in not_priority_action, l))
+    if len(al) > 0:
+        return random.choice(al)
+    else:
+        return random.choice(actlist)
+
+
+def foreseeingfunc_ver2(side, instate, actlist):
+    for a in priority_action:
+        if a in actlist:
+            return a
+    l = copy(actlist).tolist()
+    al = list(filter(lambda x: x not in not_priority_action, l))
+    if len(al) > 0:
+        score = []
+        for act in actlist:
+            st, _ = reversestones(index=act, side=side, instate=instate)
+            s = makeactivemass(state=st, side=side * -1)
+            point = 0
+            for i in not_priority_action:
+                if s[i[0]][i[1]] == 2:
+                    point += 1
+            for i in priority_action:
+                if s[i[0]][i[1]] == 2:
+                    point -= 12
+            score.append(point)
+        if np.all(np.array(score) == score[0]):
+            return random.choice(actlist)
+        else:
+            return actlist[score.index(max(score))]
+    else:
+        return random.choice(actlist)
+
+
+def foreseeingfunc_ver3(side, instate, actlist):
+    p = foreseeingfunc(side, instate, actlist)
+    return actlist[p.index(max(p))]
+
+
+def foreseeingfunc_ver4(side, instate, actlist):
+    p = foreseeingfunc(side, instate, actlist)
+    return actlist[p.index(max(p))]
+
+
+def absearch(side, state, n=0):
+    n += 1
+    st = makeactivemass(state, side)
+    c = np.count_nonzero(st == 2)
+    actlist = []
+    for i in range(c):
+        id = np.where(st == 2)
+        actlist.append([id[0][i], id[1][i]])
+    if len(actlist) >1:
+        statelist = []
+        score = []
+        for a in actlist:
+            s, _ = reversestones(side, a, state)
+            statelist.append(s)
+            score.append(staterating(s, side * -1))
+    else:
+        s, _ = reversestones(side, actlist[0], state)
+        absearch(side*-1,s,n)
 
