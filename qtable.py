@@ -138,6 +138,9 @@ class Qtable:
         sm = 0
         for p in patternmatch:
             for i in range(4):
+                x=1
+                if np.array_equal(p,np.rot90(p, i)):
+                    x=0.5
                 instate = st * np.rot90(p, i)
                 stn = statetonum(np.rot90(instate, -i))
                 fn = "".join([stn[12 * i:12 * (i + 1)] + "/" for i in range(self.rayer)])
@@ -147,5 +150,6 @@ class Qtable:
                     n=data[str(side)][1]
                 else:
                     n=0
+                n*=x
                 sm += n
         return sm

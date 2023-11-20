@@ -91,9 +91,9 @@ class Agent:
         qr = ""
         self.epsilon -= 0.02
         if self.mode == 2 and self.istmpupdate:
-            el=self.environment.log[str(self.side*-1)]
-            if len(el)>7:
-                self.tmpestimate(el[len(el)-1-7:len(el)])
+            el = self.environment.log[str(self.side * -1)]
+            if len(el) > 7:
+                self.tmpestimate(el[len(el) - 1 - 7:len(el)])
         if len(self.environment.actlist) == 1:  # 選択肢が一つしかないとき
             act = self.environment.actlist[0]
         elif self.mode == 1 and self.epsilon <= random():
@@ -111,75 +111,63 @@ class Agent:
             self.log.append([self.turn, self.environment.actlist, act, qr, statesetlist, copy(self.environment.state)])
         self.turn += 2
         return act
-    def tmpestimate(self,el):
-        tmp=[0.001,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
-        klists=[]
-        vlists=[]
-        alist=[]
+
+    def tmpestimate(self, el):
+        tmp = [0.001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+        klists = []
+        vlists = []
+        alist = []
         for l in el:
             alist.append(str(l[0]))
-            qt=self.qtable.qtableread(l[1], self.side*-1)[0]
+            qt = self.qtable.qtableread(l[1], self.side * -1)[0]
             if qt is None:
                 stli = {}
                 state = np.where(l[1] > 1, 0, l[1])
                 for i in range(SIZE):
                     for j in range(SIZE):
                         if state[i][j] == BLANK:
-                            s, dif = cf.reversestones(index=[i, j], side=self.side*-1, instate=state)
+                            s, dif = cf.reversestones(index=[i, j], side=self.side * -1, instate=state)
                             if dif != 0:
                                 stli[str([i, j])] = s
+                actlist=[]
+                for a in stli.keys():
+                    actlist.append([int(a[1]),int(a[-2])])
                 score = []
-                for st in stli.values():
-                    point = 0
-                    s = cf.makeactivemass(state=st, side=self.side)
-                    for i in self.not_priority_action:
-                        if s[i[0]][i[1]] == 2:
-                            point += 1
-                    for i in self.priority_action:
-                        if s[i[0]][i[1]] == 2:
-                            point -= 6
-                    score.append(point)
+                for act in actlist:
+                    st, _ = cf.reversestones(index=act, side=self.side, instate=self.environment.state)
+                    score.append(-1 * self.qtable.getstatevalue(st, self.side * -1))
                 klists.append(list(stli.keys()))
                 vlists.append(score)
             else:
                 klists.append(list(qt.keys()))
                 vlists.append([qt[k][1] for k in list(qt.keys())])
-        tmpplist=[]
+        tmpplist = []
         for i, x in enumerate(tmp):
             li = []
-            for klist,vlist in zip(klists,vlists):
+            for klist, vlist in zip(klists, vlists):
                 plist = cf.probabilityfunc(vlist=vlist, tmp=x)
                 li.append(plist)
-            matchcount=0
+            matchcount = 0
             for count in range(1000):
-                pact=[]
-                for l,k in zip(li,klists):
+                pact = []
+                for l, k in zip(li, klists):
                     pact.append(k[npchoice(list(range(len(k))), p=l)])
-                n=0
-                for al,pa in zip(alist,pact):
-                    if al==pa:
-                        n+=1
-                matchcount+=n/len(alist)
+                n = 0
+                for al, pa in zip(alist, pact):
+                    if al == pa:
+                        n += 1
+                matchcount += n / len(alist)
             tmpplist.append(matchcount)
-
-
 
         print("sum")
         print(tmpplist)
-        t1=tmp[tmpplist.index(max(tmpplist))]
-        t2=tmp[tmpplist.index(sorted(tmpplist)[-2])]
+        t1 = tmp[tmpplist.index(max(tmpplist))]
+        t2 = tmp[tmpplist.index(sorted(tmpplist)[-2])]
         print(t1)
         print(t2)
 
+        # self.qtable.qtableread(i[1], self.side)[0]
 
-
-
-
-
-
-
-
-        #self.qtable.qtableread(i[1], self.side)[0]
     def softmaxchoice(self, dict):
         klist = list(dict.keys())
         vlist = [dict[k][1] for k in klist]
@@ -189,11 +177,14 @@ class Agent:
 
     def stchoice(self):
         score = []
+        stlist=[]
         for act in self.environment.actlist:
             st, _ = cf.reversestones(index=act, side=self.side, instate=self.environment.state)
-            score.append(-1 * self.qtable.getstatevalue(st,self.side*-1))
+            score.append(-1 * self.qtable.getstatevalue(st, self.side * -1))
+            stlist.append(st)
         plist = cf.probabilityfunc(vlist=score, tmp=self.temperature)
         m = self.environment.actlist[npchoice(list(range(len(self.environment.actlist))), p=plist)]
+
         return m
 
     def save(self, reword):  # dict[ターン数][石値合計][選択肢の数]=[[state,{行動:[試行回数,行動価値] ...}],...]
@@ -233,7 +224,9 @@ def basictraining(env, agentw, agentb, episode):
             agentb.save(DRAWREWORD)
         agentw.reset()
         agentb.reset()
-def basictest(env,agentw,agentb,set):
+
+
+def basictest(env, agentw, agentb, set):
     wwin = 0
     bwin = 0
     draw = 0
@@ -261,35 +254,36 @@ def basictest(env,agentw,agentb,set):
     print("総試合数:" + str(n) + "回")
     return [wwin, bwin, draw, n]
 
+
 def train(episode, qtb):
     env = environment.Environment(SIZE)
     agentw = Agent(side=WHITE, mode=1, env=env, qtable=qtb, tmp=0.001)
     agentb = Agent(side=BLACK, mode=1, env=env, qtable=qtb, tmp=0.001)
-    basictraining(env=env,agentb=agentb,agentw=agentw,episode=episode)
+    basictraining(env=env, agentb=agentb, agentw=agentw, episode=episode)
 
 
 def trainb(episode, qtb):
     env = environment.Environment(SIZE)
-    agentw = Agent2(side=BLACK, env=env, isforeseeing=False, issave=True)
+    agentw = Agent2(side=BLACK, env=env,  issave=True)
     agentb = Agent(side=BLACK, mode=1, env=env, qtable=qtb, tmp=0.001)
-    basictraining(env=env,agentb=agentb,agentw=agentw,episode=episode)
+    basictraining(env=env, agentb=agentb, agentw=agentw, episode=episode)
 
 
 def trainw(episode, qtb):
     env = environment.Environment(SIZE)
     agentw = Agent(side=WHITE, mode=1, env=env, qtable=qtb, tmp=0.001)
-    agentb = Agent2(side=BLACK, env=env, isforeseeing=False, issave=True)
-    basictraining(env=env,agentb=agentb,agentw=agentw,episode=episode)
+    agentb = Agent2(side=BLACK, env=env,  issave=True)
+    basictraining(env=env, agentb=agentb, agentw=agentw, episode=episode)
 
 
 def train2(episode, qtb):
     env = environment.Environment(SIZE)
     agentw = Agent2(side=WHITE, env=env, qtable=qtb, issave=True)
-    agentb = Agent2(side=BLACK, env=env, isforeseeing=False, issave=True)
-    basictraining(env=env,agentb=agentb,agentw=agentw,episode=episode)
-    agentw = Agent2(side=BLACK, env=env, isforeseeing=False, issave=True)
+    agentb = Agent2(side=BLACK, env=env,  issave=True)
+    basictraining(env=env, agentb=agentb, agentw=agentw, episode=episode)
+    agentw = Agent2(side=BLACK, env=env, issave=True)
     agentb = Agent2(side=WHITE, env=env, qtable=qtb, issave=True)
-    basictraining(env=env,agentb=agentb,agentw=agentw,episode=episode)
+    basictraining(env=env, agentb=agentb, agentw=agentw, episode=episode)
 
 
 def test(whiteside, blackside, set):
@@ -303,7 +297,7 @@ def test(whiteside, blackside, set):
         agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp)
     else:
         agentb = Agent2(side=BLACK, env=env)
-    return basictest(env=env,agentb=agentb,agentw=agentw,set=set)
+    return basictest(env=env, agentb=agentb, agentw=agentw, set=set)
 
 
 # 温度の推移見る用
@@ -367,7 +361,7 @@ def test3():
 
 def vsplayer(whiteside=False, blackside=False):
     env = environment.Environment(SIZE)
-    print(env.side)
+    qtb = qtable.Qtable()
     def gui():
         root = tk.Tk()
         envgui.EnvGUI(env=env, master=root)
@@ -376,9 +370,10 @@ def vsplayer(whiteside=False, blackside=False):
     thread1.start()
     agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
     agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
-    #agentw = Agent2(side=WHITE,  env=env,isforeseeing=False)
-    #agentb = Agent2(side=BLACK, env=env,isforeseeing=False)
+    #agentw = Agent2(side=WHITE,  env=env)
+    #agentb = Agent2(side=BLACK, env=env)
     while env.winner is None:
+
         if env.side == WHITE:
             if not whiteside:
                 env.action(agentw.action())
@@ -413,6 +408,8 @@ def vsplayer(whiteside=False, blackside=False):
     thread1.join()
 
 
+
+
 def t():
     qtb = qtable.Qtable()
     logs = log.LOG(SIZE)
@@ -420,7 +417,7 @@ def t():
     trainset = 10000
     # _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     # logs.save(bwin / n, 0)
-    for i in range(5):
+    for i in range(2):
         s = time.perf_counter()
         print("training...")
         train2(trainset, qtb)
@@ -434,15 +431,14 @@ def t():
     logs.end()
 
 
-
 def t2():
     qtb = qtable.Qtable()
     logs = log.LOG(SIZE)
     testset = 100
-    trainset = 10000
+    trainset = 1000
     # _, bwin, _, n = test(whiteside=False, blackside=True, set=testset)
     # logs.save(bwin / n, 0)
-    for i in range(5):
+    for i in range(10):
         s = time.perf_counter()
         print("training...")
         trainb(trainset, qtb)
@@ -456,14 +452,14 @@ def t2():
     # qtb.finalsave()
     logs.end()
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     #vsplayer(blackside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
     t()
-    t2()
-    #test3()
+    # t2()
+    # test3()
     #test(whiteside=False, blackside=True, set=10)
     e = time.perf_counter()
     print(e - s)

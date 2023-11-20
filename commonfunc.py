@@ -114,7 +114,7 @@ def foreseeingfunc_ver2(side, instate, actlist):
                     point -= 12
             score.append(point)
         if np.all(np.array(score) == score[0]):
-            return random.choice(actlist)
+            return foreseeingfunc_ver3(side, instate, actlist)
         else:
             return actlist[score.index(max(score))]
     else:
@@ -126,9 +126,29 @@ def foreseeingfunc_ver3(side, instate, actlist):
     return actlist[p.index(max(p))]
 
 
-def foreseeingfunc_ver4(side, instate, actlist):
-    p = foreseeingfunc(side, instate, actlist)
-    return actlist[p.index(max(p))]
+def foreseeingfunc_ver4(side, instate, actlist,qtb):
+    score = []
+    stlist = []
+    for act in actlist:
+        st, _ = reversestones(index=act, side=side, instate=instate)
+        score.append(-1 * qtb.getstatevalue(st, side * -1))
+        stlist.append(st)
+    mi=score.index(min(score))
+    for ind,act in enumerate(actlist):
+        if mi != ind:
+            st, _ = reversestones(index=act, side=side, instate=instate)
+            s = makeactivemass(state=st, side=side * -1)
+            c = np.count_nonzero(s == 2)
+            al = []
+            for i in range(c):
+                id = np.where(s == 2)
+                al.append([id[0][i], id[1][i]])
+            sc=[]
+            for a in al:
+                sst, _ = reversestones(index=a, side=side*-1, instate=st)
+                sc.append(qtb.getstatevalue(sst, side))
+            score[ind]+=sum(sc)
+    return score
 
 
 def absearch(side, state, n=0):
