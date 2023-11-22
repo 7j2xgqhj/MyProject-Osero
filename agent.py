@@ -287,14 +287,15 @@ def train2(episode, qtb):
 
 
 def test(whiteside, blackside, set):
+    qtb=qtable.Qtable()
     env = environment.Environment(SIZE)
     tmp = 0.001
     if whiteside:
-        agentw = Agent(side=WHITE, mode=2, env=env, tmp=tmp)
+        agentw = Agent(side=WHITE, mode=2, env=env, tmp=tmp,qtable=qtb)
     else:
         agentw = Agent2(side=WHITE, env=env)
     if blackside:
-        agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp)
+        agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp,qtable=qtb)
     else:
         agentb = Agent2(side=BLACK, env=env)
     return basictest(env=env, agentb=agentb, agentw=agentw, set=set)
@@ -451,16 +452,42 @@ def t2():
     print("save")
     # qtb.finalsave()
     logs.end()
+def tttte():
+    whiteside = False
+    blackside = True
+    set = 100
+    qtb = qtable.Qtable()
+    env = environment.Environment(SIZE)
+    tmp = 0.001
+    patternweight = [1, 2, 0.1, 10, 0.5, 0.1, 2, 0.5, 0.5, 0.1, 10, 1, 0.1]
+    pwset=[10,2,1,0.5,0.1]
+    if whiteside:
+        agentw = Agent(side=WHITE, mode=2, env=env, tmp=tmp, qtable=qtb)
+    else:
+        agentw = Agent2(side=WHITE, env=env)
+    if blackside:
+        agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp, qtable=qtb)
+    else:
+        agentb = Agent2(side=BLACK, env=env)
+    for i in range(13):
+        wins=[]
+        for s in pwset:
+            patternweight[i]=s
+            qtb.settest(patternweight)
+            wins.append(basictest(env=env, agentb=agentb, agentw=agentw, set=set)[1])
+        patternweight[i] = pwset[wins.index(max(wins))]
+        print(patternweight)
 
 
 if __name__ == "__main__":
     #vsplayer(blackside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
-    t()
+    #t()
     # t2()
     # test3()
-    #test(whiteside=False, blackside=True, set=10)
+    tttte()
+    #test(whiteside=False, blackside=True, set=100)
     e = time.perf_counter()
     print(e - s)
     # plt.show()

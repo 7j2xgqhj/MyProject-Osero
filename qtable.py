@@ -28,7 +28,7 @@ class Qtable:
         self.filelist = []
         self.cpath = CPATH
         self.tpath=CPATH+"tdict/"
-
+        self.patternweight = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     def qtableread(self, state, side: int):
         st = np.where(state > 2, 2, state)
         if side == 1:
@@ -136,7 +136,7 @@ class Qtable:
     def getstatevalue(self, state, side):
         st = np.where(state >= 2, 0, state)
         sm = 0
-        for p in patternmatch:
+        for p,pw in zip(patternmatch,self.patternweight):
             for i in range(4):
                 x=1
                 if np.array_equal(p,np.rot90(p, i)):
@@ -151,5 +151,8 @@ class Qtable:
                 else:
                     n=0
                 n*=x
+                n+=pw
                 sm += n
         return sm
+    def settest(self,pw):
+        self.patternweight=pw

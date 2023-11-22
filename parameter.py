@@ -50,6 +50,7 @@ class Parameter(metaclass=ConstantMeta):
                            [SIZE - 2, SIZE - 1], [SIZE - 1, SIZE - 2],
                            [SIZE - 2, SIZE - 2]]
     # 長いやつ
+
     patternmatch = [np.array([[1, 1, 1, 1, 1, 1, 1, 1],
                               [0, 0, 0, 0, 0, 0, 0, 0],
                               [0, 0, 0, 0, 0, 0, 0, 0],
