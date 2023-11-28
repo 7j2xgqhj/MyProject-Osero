@@ -3,8 +3,7 @@ import pickle
 import shutil
 from parameter import Parameter
 import numpy as np
-import commonfunc as cf
-from collections import defaultdict
+
 
 SIZE = Parameter.SIZE
 PATH = Parameter.PATH

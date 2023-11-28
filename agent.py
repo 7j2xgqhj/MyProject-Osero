@@ -58,7 +58,6 @@ def graph(di, le):
 
 
 class Agent:
-    # 盤面の情報は、先手・後手(定数)、何手目(計算が簡単)、石値合計(np.sum(state))。打てる手数(ついでで使える)で分類して絞り込めるようにすることで計算時間を削減したい
     def __init__(self, side, mode=0, env=None, tmp=TEMPERATURE, tmpupdate=False, qtable=qtable.Qtable()):
         self.mode = mode
         self.side = side
@@ -129,9 +128,9 @@ class Agent:
                             s, dif = cf.reversestones(index=[i, j], side=self.side * -1, instate=state)
                             if dif != 0:
                                 stli[str([i, j])] = s
-                actlist=[]
+                actlist = []
                 for a in stli.keys():
-                    actlist.append([int(a[1]),int(a[-2])])
+                    actlist.append([int(a[1]), int(a[-2])])
                 score = []
                 for act in actlist:
                     st, _ = cf.reversestones(index=act, side=self.side, instate=self.environment.state)
@@ -171,13 +170,16 @@ class Agent:
     def softmaxchoice(self, dict):
         klist = list(dict.keys())
         vlist = [dict[k][1] for k in klist]
-        plist = cf.probabilityfunc(vlist=vlist, tmp=self.temperature)
-        m = klist[npchoice(list(range(len(klist))), p=plist)]
+        if self.temperature < 0.01:
+            m = klist[vlist.index(max(vlist))]
+        else:
+            plist = cf.probabilityfunc(vlist=vlist, tmp=self.temperature)
+            m = klist[npchoice(list(range(len(klist))), p=plist)]
         return [int(m[1]), int(m[-2])]
 
     def stchoice(self):
         score = []
-        stlist=[]
+        stlist = []
         for act in self.environment.actlist:
             st, _ = cf.reversestones(index=act, side=self.side, instate=self.environment.state)
             score.append(-1 * self.qtable.getstatevalue(st, self.side * -1))
@@ -187,7 +189,7 @@ class Agent:
 
         return m
 
-    def save(self, reword):  # dict[ターン数][石値合計][選択肢の数]=[[state,{行動:[試行回数,行動価値] ...}],...]
+    def save(self, reword):
         # [self.turn, self.environment.actlist, act, qr, statesetlist, copy(self.environment.state)]
         for t, step in enumerate(self.log):
             r = reword * self.gamma ** (len(self.log) - (t + 1))
@@ -201,7 +203,7 @@ class Agent:
                     ql[str(a)] = np.array([0, 0], dtype=np.float32)
                 ql[str(step[2])] += [1, r]
                 self.qtable.qtablesave(step[3], ql, self.side)
-            self.qtable.tablesave(step[5], r, self.side)
+            # self.qtable.tablesave(step[5], r, self.side)
 
 
 def basictraining(env, agentw, agentb, episode):
@@ -264,7 +266,7 @@ def train(episode, qtb):
 
 def trainb(episode, qtb):
     env = environment.Environment(SIZE)
-    agentw = Agent2(side=BLACK, env=env,  issave=True)
+    agentw = Agent2(side=BLACK, env=env, issave=True)
     agentb = Agent(side=BLACK, mode=1, env=env, qtable=qtb, tmp=0.001)
     basictraining(env=env, agentb=agentb, agentw=agentw, episode=episode)
 
@@ -272,14 +274,14 @@ def trainb(episode, qtb):
 def trainw(episode, qtb):
     env = environment.Environment(SIZE)
     agentw = Agent(side=WHITE, mode=1, env=env, qtable=qtb, tmp=0.001)
-    agentb = Agent2(side=BLACK, env=env,  issave=True)
+    agentb = Agent2(side=BLACK, env=env, issave=True)
     basictraining(env=env, agentb=agentb, agentw=agentw, episode=episode)
 
 
 def train2(episode, qtb):
     env = environment.Environment(SIZE)
     agentw = Agent2(side=WHITE, env=env, qtable=qtb, issave=True)
-    agentb = Agent2(side=BLACK, env=env,  issave=True)
+    agentb = Agent2(side=BLACK, env=env, issave=True)
     basictraining(env=env, agentb=agentb, agentw=agentw, episode=episode)
     agentw = Agent2(side=BLACK, env=env, issave=True)
     agentb = Agent2(side=WHITE, env=env, qtable=qtb, issave=True)
@@ -287,15 +289,15 @@ def train2(episode, qtb):
 
 
 def test(whiteside, blackside, set):
-    qtb=qtable.Qtable()
+    qtb = qtable.Qtable()
     env = environment.Environment(SIZE)
     tmp = 0.001
     if whiteside:
-        agentw = Agent(side=WHITE, mode=2, env=env, tmp=tmp,qtable=qtb)
+        agentw = Agent(side=WHITE, mode=2, env=env, tmp=tmp, qtable=qtb)
     else:
         agentw = Agent2(side=WHITE, env=env)
     if blackside:
-        agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp,qtable=qtb)
+        agentb = Agent(side=BLACK, mode=2, env=env, tmp=tmp, qtable=qtb)
     else:
         agentb = Agent2(side=BLACK, env=env)
     return basictest(env=env, agentb=agentb, agentw=agentw, set=set)
@@ -363,6 +365,7 @@ def test3():
 def vsplayer(whiteside=False, blackside=False):
     env = environment.Environment(SIZE)
     qtb = qtable.Qtable()
+
     def gui():
         root = tk.Tk()
         envgui.EnvGUI(env=env, master=root)
@@ -371,8 +374,8 @@ def vsplayer(whiteside=False, blackside=False):
     thread1.start()
     agentw = Agent(side=WHITE, mode=2, env=env, tmp=0.001)
     agentb = Agent(side=BLACK, mode=2, env=env, tmp=0.001)
-    #agentw = Agent2(side=WHITE,  env=env)
-    #agentb = Agent2(side=BLACK, env=env)
+    # agentw = Agent2(side=WHITE,  env=env)
+    # agentb = Agent2(side=BLACK, env=env)
     while env.winner is None:
 
         if env.side == WHITE:
@@ -407,8 +410,6 @@ def vsplayer(whiteside=False, blackside=False):
     else:
         print("引き分け")
     thread1.join()
-
-
 
 
 def t():
@@ -452,6 +453,8 @@ def t2():
     print("save")
     # qtb.finalsave()
     logs.end()
+
+
 def tttte():
     whiteside = False
     blackside = True
@@ -460,7 +463,7 @@ def tttte():
     env = environment.Environment(SIZE)
     tmp = 0.001
     patternweight = [1, 2, 0.1, 10, 0.5, 0.1, 2, 0.5, 0.5, 0.1, 10, 1, 0.1]
-    pwset=[10,2,1,0.5,0.1]
+    pwset = [10, 2, 1, 0.5, 0.1]
     if whiteside:
         agentw = Agent(side=WHITE, mode=2, env=env, tmp=tmp, qtable=qtb)
     else:
@@ -470,9 +473,9 @@ def tttte():
     else:
         agentb = Agent2(side=BLACK, env=env)
     for i in range(13):
-        wins=[]
+        wins = []
         for s in pwset:
-            patternweight[i]=s
+            patternweight[i] = s
             qtb.settest(patternweight)
             wins.append(basictest(env=env, agentb=agentb, agentw=agentw, set=set)[1])
         patternweight[i] = pwset[wins.index(max(wins))]
@@ -480,18 +483,18 @@ def tttte():
 
 
 if __name__ == "__main__":
-    #vsplayer(blackside=True)
+    # vsplayer(blackside=True)
     # print(test2(istmp=True))
     s = time.perf_counter()
     #t()
     # t2()
     # test3()
-    tttte()
-    #test(whiteside=False, blackside=True, set=100)
+    # tttte()
+    test(whiteside=False, blackside=False, set=1000)
     e = time.perf_counter()
     print(e - s)
     # plt.show()
     # 一試合での温度推移確認
-    #test2()
+    # test2()
     # 温度による勝率推移確認
     # test3()

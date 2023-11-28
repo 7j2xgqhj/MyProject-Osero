@@ -35,18 +35,9 @@ class Agent2:
         self.qtable = qtable
         self.priority_action = Parameter.priority_action
         self.not_priority_action = Parameter.not_priority_action
-        if side == BLACK:
-            self.turn = 0
-        elif side == WHITE:
-            self.turn = 1
 
     def reset(self):
         self.log = []
-        if self.side == BLACK:
-            self.turn = 0
-        elif self.side == WHITE:
-            self.turn = 1
-
     def action(self):
         if len(self.environment.actlist) <= 1:
             return self.environment.actlist[0]
@@ -64,7 +55,7 @@ class Agent2:
 
     def logmake(self, act):
         statesetlist, qr = self.qtable.qtableread(self.environment.state, self.side)
-        self.log.append([self.turn, self.environment.actlist, act, qr, statesetlist, copy(self.environment.state)])
+        self.log.append([self.environment.turn, self.environment.actlist, act, qr, statesetlist, copy(self.environment.state)])
 
     def save(self, reword):
         for t, step in enumerate(self.log):
@@ -79,4 +70,4 @@ class Agent2:
                     ql[str(a)] = np.array([0, 0], dtype=np.float32)
                 ql[str(step[2])] += [1, r]
                 self.qtable.qtablesave(step[3], ql, self.side)
-            self.qtable.tablesave(step[5], r, self.side)
+            #self.qtable.tablesave(step[5], r, self.side)
