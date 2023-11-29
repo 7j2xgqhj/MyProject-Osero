@@ -84,7 +84,7 @@ def boardvalue(startset):
     wwin = 0
     bwin = 0
     draw = 0
-    se=1000
+    se=200
     env=Environment2(startset)
     agentw = Agent2(side=WHITE, env=env, issave=True)
     agentb = Agent2(side=BLACK, env=env, issave=True)
@@ -112,8 +112,8 @@ def l():
         t = []
         agentw=Agent2(side=WHITE, env=env, issave=True)
         agentb=Agent2(side=BLACK, env=env, issave=True)
-        for count in range(100):
-            f = random.randint(35, 55)
+        for count in range(1000):
+            f = random.randint(10, 55)
             env.reset()
             while env.winner is None:
                 if f == env.turn:
@@ -147,16 +147,20 @@ def ttt():
     env = environment.Environment()
     agentw = Agent2(side=WHITE, env=env, issave=True)
     agentb = Agent2(side=BLACK, env=env, issave=True)
+    c=0
+    miss=[]
     for count in range(10):
-        f = random.randint(35, 55)
+        f = random.randint(10, 55)
         env.reset()
         while env.winner is None:
             if f == env.turn:
                 a = env.state.flatten()
                 a = np.where(a > 1, 0, a)
-                n=test.getval(a.tolist())[0]
+                n=test.getval(a.tolist())[0][0]
                 b=boardvalue([env.state, env.side, env.winner, env.isPassed,env.turn])
                 if n*b<0:
+                    c+=1
+                    miss.append([f,n,b])
                     flag =True
             if env.side == WHITE:
                 env.action(agentw.action())
@@ -164,8 +168,11 @@ def ttt():
                 env.action(agentb.action())
         agentw.reset()
         agentb.reset()
+    print("10問中"+str(10-c)+"問正解")
+    print("間違えた回")
+    for i in miss:
+        print(str(i[0])+"手目:net "+str(i[1])+":board "+str(i[2]))
     return flag
-
 count=0
 while ttt() or count==30:
     print(count)
