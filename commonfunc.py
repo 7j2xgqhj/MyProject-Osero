@@ -169,5 +169,3 @@ def absearch(side, state, n=0):
     else:
         s, _ = reversestones(side, actlist[0], state)
         absearch(side*-1,s,n)
-
-print(probabilityfunc([3,4,1],1))

@@ -4,20 +4,22 @@ import random
 from agent2 import Agent2
 import numpy as np
 import commonfunc as cf
-from random import choice
 import environment
-import test
+import netlearning as net
 import pickle
+from parameter import Parameter
+from multiprocessing import Process
+SIZE= Parameter.SIZE
 BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
-
+Path=os.path.abspath("..\\..\\qcash") + "/t/"
 
 class Environment2:
     # 初期化
     def __init__(self, startset):
         self.startset=startset
-        self.size = int(8)  # 8 or 6 or 4
+        self.size = int(SIZE)  # 8 or 6 or 4
         self.reset()
 
     def reset(self):
@@ -105,21 +107,21 @@ def boardvalue(startset):
         agentw.reset()
         agentb.reset()
     return bwin/(se-draw)-0.5
-def l():
-    for i in range(10):
+def makedata():
+    for i in range(1):
         env = environment.Environment()
         s = []
         t = []
         agentw=Agent2(side=WHITE, env=env, issave=True)
         agentb=Agent2(side=BLACK, env=env, issave=True)
-        for count in range(1000):
-            f = random.randint(10, 55)
+        for count in range(10):
+            f = random.randint(SIZE, SIZE**2-5)
             env.reset()
             while env.winner is None:
                 if f == env.turn:
                     a = np.where(env.state > 1, 0, env.state)
                     v=[boardvalue([env.state, env.side, env.winner, env.isPassed,env.turn])]
-                    for x in range(2):
+                    for x in range(200):
                         for y in range(4):
                             if x == 1:
                                 sou = np.fliplr(a)
@@ -136,12 +138,17 @@ def l():
             agentw.reset()
             agentb.reset()
         dt_now = datetime.datetime.now()
-        with open(os.path.abspath("..\\..\\qcash") + "/t/"+dt_now.strftime('%Y%m%d%H%M%S')+".pkl", 'wb') as f:
+        st=random.randint(0,1000)
+        with open(Path+dt_now.strftime('%Y%m%d%H%M%S')+str(st)+".pkl", 'wb') as f:
             pickle.dump([s,t], f)
-        print("net")
-        test.netlearning(s, t)
-        print("netend")
-def ttt():
+def multimakedata():
+    p = Process(target=makedata)
+    p.start()
+    p = Process(target=makedata)
+    p.start()
+    p = Process(target=makedata)
+    p.start()
+def checkdata():
     print("ttt")
     flag=False
     env = environment.Environment()
@@ -149,14 +156,14 @@ def ttt():
     agentb = Agent2(side=BLACK, env=env, issave=True)
     c=0
     miss=[]
-    for count in range(10):
-        f = random.randint(10, 55)
+    for count in range(100):
+        f = random.randint(SIZE, SIZE**2-5)
         env.reset()
         while env.winner is None:
             if f == env.turn:
                 a = env.state.flatten()
                 a = np.where(a > 1, 0, a)
-                n=test.getval(a.tolist())[0][0]
+                n=net.getval(a.tolist())[0][0]
                 b=boardvalue([env.state, env.side, env.winner, env.isPassed,env.turn])
                 if n*b<0:
                     c+=1
@@ -173,8 +180,12 @@ def ttt():
     for i in miss:
         print(str(i[0])+"手目:net "+str(i[1])+":board "+str(i[2]))
     return flag
-count=0
-while ttt() or count==30:
-    print(count)
-    l()
-    count+=1
+def learn():
+    li=os.listdir(Path)
+    for l in li:
+        with open(Path+l, 'rb') as f:
+            data = pickle.load(f)
+        net.netlearning(data[0],data[1])
+if __name__ == '__main__':
+    multimakedata()
+    #learn()

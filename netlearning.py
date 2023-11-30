@@ -5,20 +5,25 @@ import chainer.links as L
 from chainer import optimizers, serializers
 import chainer.functions as F
 import os
+from parameter import Parameter
 n_epoch = 50000  # エポック数(パラメータ更新回数) 一つの訓練データを何回繰り返して学習させるか
-in_units = 64  # 入力層のユニット数
+in_units = Parameter.SIZE**2  # 入力層のユニット数
 n_units = 20  # 隠れ層のユニット数
 out_units = 1  # 出力層のユニット数
-def netlearning(sources,targets):
-    # N = len(source)  # train data size
+filename='my_iris'+str(in_units)+'.net'
+def modelset():
     model = chainer.Sequential(L.Linear(in_units, n_units), F.sigmoid,
                                L.Linear(n_units, n_units), F.sigmoid,
                                L.Linear(n_units, n_units), F.sigmoid,
                                L.Linear(n_units, n_units), F.sigmoid,
                                L.Linear(n_units, n_units), F.sigmoid,
                                L.Linear(n_units, out_units))
-    if os.path.isfile('my_iris.net'):
-        chainer.serializers.load_npz('my_iris.net', model)
+    if os.path.isfile(filename):
+        chainer.serializers.load_npz(filename, model)
+    return model
+def netlearning(sources,targets):
+    # N = len(source)  # train data size
+    model = modelset()
     # Prepare dataset
     #source = [[0, 0], [1, 0], [0, 1], [1, 1], [1, 2], [1, 3], [1, 4], [1, 5]]
     #target = [[0], [1], [1], [0], [2], [3], [4], [5]]
@@ -66,15 +71,10 @@ def netlearning(sources,targets):
             break
 
         epoch += 1
-    chainer.serializers.save_npz('my_iris.net', model)
+    chainer.serializers.save_npz(filename, model)
 
 def getval(state):
-    model = chainer.Sequential(L.Linear(in_units, n_units), F.sigmoid,
-                               L.Linear(n_units, n_units), F.sigmoid,
-                               L.Linear(n_units, n_units), F.sigmoid,
-                               L.Linear(n_units, out_units))
-    if os.path.isfile('my_iris.net'):
-        chainer.serializers.load_npz('my_iris.net', model)
+    model = modelset()
     #print(state)
     y=model(np.asarray(np.array([state], dtype=np.float32)))
     return y.data
