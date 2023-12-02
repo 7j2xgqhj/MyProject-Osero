@@ -14,7 +14,8 @@ BLANK = 0  # 石が空：0
 BLACK = 1  # 石が黒：1
 WHITE = -1  # 石が白：2
 Path=os.path.abspath("..\\..\\qcash") + "/t/"
-
+Path2=os.path.abspath("..\\..\\qcash") + "/t2/"
+Path3=os.path.abspath("..\\..\\qcash") + "/t3/"
 class Environment2:
     # 初期化
     def __init__(self, startset):
@@ -82,6 +83,33 @@ class Environment2:
                 self.winner = WHITE
             elif black == w:
                 self.winner = BLACK
+    def getstartset(self):
+        return [self.state, self.side, self.winner, self.isPassed,self.turn]
+def saveval(startset,l):
+    state=startset[0]
+    a = np.where(state > 1, 0, state)
+    s=[]
+    t=[]
+    if l[0]+l[1] !=0:
+        v=l[0]/(l[0]+l[1])-0.5
+    else:
+        v=0
+    for x in range(2):
+        for y in range(4):
+            if x == 1:
+                sou = np.fliplr(a)
+            else:
+                sou = a
+            sou = np.rot90(sou, y)
+            sou=sou.ravel()
+            s.append(sou.tolist())
+            t.append(v)
+    statestr = ""
+    for i in state:
+        for j in i:
+            statestr += str(j + 1)
+    with open(Path2 + statestr + ".pkl", 'wb') as f:
+        pickle.dump([s,t], f)
 def boardvalue(startset):
     wwin = 0
     bwin = 0
@@ -107,21 +135,46 @@ def boardvalue(startset):
         agentw.reset()
         agentb.reset()
     return bwin/(se-draw)-0.5
+def boardvalue2(startset):
+    wwin = 0
+    bwin = 0
+    draw = 0
+    env=Environment2(startset)
+    for act in env.actlist:
+        if env.side == WHITE:
+            env.action(act)
+        else:
+            env.action(act)
+        winner = env.winner
+        if winner == WHITE:
+            wwin += 1
+        elif winner == BLACK:
+            bwin += 1
+        elif winner ==BLANK:
+            draw += 1
+        else:
+            pbwin,pwwin,pdraw =boardvalue2(env.getstartset())
+            bwin+=pbwin
+            wwin+=pwwin
+            draw+=pdraw
+    saveval(startset,[bwin,wwin,draw])
+    return bwin,wwin,draw
 def makedata():
-    for i in range(1):
+    for i in range(10):
         env = environment.Environment()
         s = []
         t = []
         agentw=Agent2(side=WHITE, env=env, issave=True)
         agentb=Agent2(side=BLACK, env=env, issave=True)
-        for count in range(10):
+        for count in range(200):
+            print(str(count+1)+"/200 & "+str(i)+"/10")
             f = random.randint(SIZE, SIZE**2-5)
             env.reset()
             while env.winner is None:
                 if f == env.turn:
                     a = np.where(env.state > 1, 0, env.state)
                     v=[boardvalue([env.state, env.side, env.winner, env.isPassed,env.turn])]
-                    for x in range(200):
+                    for x in range(2):
                         for y in range(4):
                             if x == 1:
                                 sou = np.fliplr(a)
@@ -139,6 +192,7 @@ def makedata():
             agentb.reset()
         dt_now = datetime.datetime.now()
         st=random.randint(0,1000)
+
         with open(Path+dt_now.strftime('%Y%m%d%H%M%S')+str(st)+".pkl", 'wb') as f:
             pickle.dump([s,t], f)
 def multimakedata():
@@ -175,17 +229,57 @@ def checkdata():
                 env.action(agentb.action())
         agentw.reset()
         agentb.reset()
-    print("10問中"+str(10-c)+"問正解")
+    print("100問中"+str(100-c)+"問正解")
     print("間違えた回")
     for i in miss:
         print(str(i[0])+"手目:net "+str(i[1])+":board "+str(i[2]))
     return flag
 def learn():
-    li=os.listdir(Path)
+    li=os.listdir(Path3)
     for l in li:
-        with open(Path+l, 'rb') as f:
+        with open(Path3+l, 'rb') as f:
             data = pickle.load(f)
+        print(len(data))
+        print(len(data[0]))
+        print(len(data[1]))
         net.netlearning(data[0],data[1])
+def saveop():
+    li=os.listdir(Path2)
+    n = 100
+    for i in range(0, len(li), n):
+        s=[]
+        t=[]
+        for l in li[i: i + n]:
+            with open(Path2 + l, 'rb') as f:
+                data = pickle.load(f)
+            for state ,target in zip(data[0],data[1]):
+                print(len(state))
+                s.append(state)
+                t.append(target)
+            os.remove(Path2 + l)
+        dt_now = datetime.datetime.now()
+        st = random.randint(0, 1000)
+        with open(Path3 + dt_now.strftime('%Y%m%d%H%M%S') + str(st) + ".pkl", 'wb') as f:
+            pickle.dump([s, t], f)
+
+def tes():
+    for i in range(30):
+        env = environment.Environment()
+        f = random.randint(35, 50)
+        while env.winner is None:
+            if f == env.turn:
+                boardvalue2([env.state, env.side, env.winner, env.isPassed, env.turn])
+            if env.side == WHITE:
+                env.action(random.choice(env.actlist))
+            else:
+                env.action(random.choice(env.actlist))
+    saveop()
+    learn()
 if __name__ == '__main__':
-    multimakedata()
-    #learn()
+    #tes()
+    saveop()
+    #multimakedata()
+    learn()
+    #checkdata()
+    #multimakedata()
+

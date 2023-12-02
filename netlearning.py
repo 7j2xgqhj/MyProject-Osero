@@ -27,6 +27,7 @@ def netlearning(sources,targets):
     # Prepare dataset
     #source = [[0, 0], [1, 0], [0, 1], [1, 1], [1, 2], [1, 3], [1, 4], [1, 5]]
     #target = [[0], [1], [1], [0], [2], [3], [4], [5]]
+    print(len(sources[0]))
     source=sources
     target=targets
     dataset = {'source': np.array(source, dtype=np.float32), 'target': np.array(target, dtype=np.float32)}
