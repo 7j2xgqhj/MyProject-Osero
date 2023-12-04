@@ -239,9 +239,6 @@ def learn():
     for l in li:
         with open(Path3+l, 'rb') as f:
             data = pickle.load(f)
-        print(len(data))
-        print(len(data[0]))
-        print(len(data[1]))
         net.netlearning(data[0],data[1])
 def saveop():
     li=os.listdir(Path2)
@@ -253,9 +250,8 @@ def saveop():
             with open(Path2 + l, 'rb') as f:
                 data = pickle.load(f)
             for state ,target in zip(data[0],data[1]):
-                print(len(state))
                 s.append(state)
-                t.append(target)
+                t.append([target])
             os.remove(Path2 + l)
         dt_now = datetime.datetime.now()
         st = random.randint(0, 1000)
@@ -263,9 +259,12 @@ def saveop():
             pickle.dump([s, t], f)
 
 def tes():
-    for i in range(30):
-        env = environment.Environment()
-        f = random.randint(35, 50)
+    env=environment.Environment()
+    for count in range(100):
+        f = random.randint(35, 55)
+        env.reset()
+        print(f)
+        print(count)
         while env.winner is None:
             if f == env.turn:
                 boardvalue2([env.state, env.side, env.winner, env.isPassed, env.turn])
@@ -276,10 +275,10 @@ def tes():
     saveop()
     learn()
 if __name__ == '__main__':
-    #tes()
-    saveop()
+    tes()
+    #saveop()
     #multimakedata()
-    learn()
+    #learn()
     #checkdata()
     #multimakedata()
 
